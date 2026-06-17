@@ -20,14 +20,17 @@ An always-on Android AI assistant with:
 
 | Role | Model | Runtime | Hardware |
 |---|---|---|---|
-| STT / ASR | `ibm-granite/granite-speech-4.1-2b-nar` | NexaSDK / QNN | Hexagon NPU |
-| Chat + Vision | `google/gemma-4-E4B-it-qat-q4_0-gguf` | llama.cpp | Adreno 830 GPU |
+| STT / ASR | `ibm-granite/granite-speech-4.1-2b-nar` | ONNX Runtime QNN EP | Hexagon NPU |
+| Chat + Vision | `Mer0vin8ian/gemma-4-E4B-it-qat-mobile-ONNX` | ONNX Runtime QNN EP | Adreno 830 GPU |
 | Fallback STT | `whisper_base` (compiled via AI Hub) | QNN context binary | NPU |
 
 ### Why these models
-- **Granite Speech 4.1:** IBM + Qualcomm + Nexa AI explicitly validated on Hexagon HTP. BYOM path — pull weights, compile via AI Hub pipeline. IBM licensing means no precompiled `.bin` redistribution.
-- **Gemma QAT q4_0 GGUF:** ~4.5GB, QAT (Quantization-Aware Training) = better quality than PTQ at same size. Runs via llama.cpp `-ngl 99` on Adreno 830 via OpenCL. E4B = 17B total params, 4.5B active (MoE architecture).
+- **Granite Speech 4.1:** IBM + Qualcomm + Nexa AI explicitly validated on Hexagon HTP. BYOM path — pull weights, compile via AI Hub pipeline (safetensors → AIMET quant → ONNX → QNN context binary). IBM licensing means no precompiled `.bin` redistribution.
+- **Gemma QAT ONNX (mobile):** `Mer0vin8ian/gemma-4-E4B-it-qat-mobile-ONNX` — 3.61GB, QAT quality, split into ONNX components (audio encoder, decoder, vision encoder). Runs via ONNX Runtime QNN EP on Adreno 830. E4B = 17B total params, 4.5B active (MoE architecture).
 - **Whisper Base:** Already validated in this repo, 100% NPU on SM8750, encoder 22ms / decoder 2.6ms. Submit compile job at aihub.qualcomm.com.
+
+### Unified runtime: ONNX Runtime with QNN EP
+Both Granite and Gemma go through ONNX — Granite as part of the AI Hub compile pipeline, Gemma as pre-exported ONNX components. Single runtime (ONNX Runtime + QNN execution provider) handles both instead of mixing llama.cpp + QNN separately.
 
 ### Models to download (browser only — hf CLI crashes on Termux/XET)
 - `ibm-granite/granite-speech-4.1-2b-nar` ✅ Already downloaded
@@ -91,8 +94,8 @@ adb shell cmd game mode performance <your.package.name>
 
 | Component | SDK | Notes |
 |---|---|---|
-| Granite NPU inference | NexaSDK for Android | 3-line API, IBM+Qualcomm+Nexa validated |
-| Gemma GPU inference | llama.cpp | OpenCL → Adreno 830, `-ngl 99` |
+| Granite NPU inference | ONNX Runtime QNN EP | ONNX export via AI Hub pipeline, QNN EP targets Hexagon NPU |
+| Gemma GPU/NPU inference | ONNX Runtime QNN EP | Pre-exported ONNX components, QNN EP on Adreno 830 |
 | Whisper NPU | QNN context binary via AI Hub | Compile at aihub.qualcomm.com |
 | Screen capture | MediaProjection API | Standard Android |
 | Overlay tile | AccessibilityService | Standard Android |
