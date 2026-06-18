@@ -1,5 +1,5 @@
 # Horizons App — State of the Union
-**Date:** 2026-06-18  
+**Date:** 2026-06-18 (updated end of session 2)**  
 **Branch:** `claude/focused-noether-evoknv`
 
 ---
@@ -186,11 +186,28 @@ Status in this repo: `gemma4.py` driver exists, no `ibm_granite_v4_0` model dir 
 
 ## Reading List / Next Session
 
-### Immediate tasks
-1. Submit Whisper Base compile job at aihub.qualcomm.com (web UI → Models → Whisper Base → Run on device → NPU → SM8750)
-2. Download Unsloth Gemma 12B when needed for a coding session
-3. Check Qualcomm forum response re: Granite 4.0 Mamba-2 HTP compiler support
-4. Explore VoxSherpa STT bridge via Tasker or shell script
+### Current device state (end of session 2)
+- `~/gemma-12b/` — Gemma 4 12B QAT Q4_0 GGUF downloaded and working in llama-cli (CPU only for now)
+- `~/kokoro/` — Kokoro-82M-v1.0-ONNX cloned, voices downloaded (28MB), onnx model (1.4GB)
+- llama-cli installed via `pkg install llama-cpp`
+- TTS NOT working yet — onnxruntime pip package does not support Android, sherpa-onnx build failed (needs cmake)
+
+### Next session — start here
+1. **Fix TTS (sherpa-onnx):**
+   - `pkg install cmake` first
+   - Then `pip install sherpa-onnx`
+   - Rewrite `kokoro_tts.py` to use sherpa-onnx API (script at `tmp_kokoro_tts.py` in repo is for onnxruntime, needs rewrite)
+   - sherpa-onnx uses same voice `.bin` files already in `~/kokoro/voices/`
+2. **Wire llama-cli output → TTS** once sherpa-onnx is working
+3. **Submit Whisper Base compile job** at aihub.qualcomm.com (web UI → Models → Whisper Base → Run on device → NPU → SM8750)
+4. **QNN compile path for Gemma 12B** — currently running CPU only via llama-cli, need to onboard into this repo for proper NPU/GPU via AI Hub
+5. **Check Qualcomm forum** response re: Granite 4.0 Mamba-2 HTP compiler support
+6. **VoxSherpa STT bridge** — explore Tasker or shell path into VoxSherpa's internal STT
+
+### What NOT to retry
+- `onnxruntime` pip package — does not support Android, will always fail
+- `huggingface-cli` / `hf download` for large files — XET Rust panic on Termux, use browser or git clone
+- `~/storage/downloads/` symlink — broken, use `/sdcard/Downloads/` directly instead
 
 ### Docs to read
 - `tutorials/llm/onboarding.md` — LLM BYOM pipeline walkthrough
