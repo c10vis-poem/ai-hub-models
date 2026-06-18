@@ -1,5 +1,15 @@
 # Qualcomm AI Hub Models
 
+## Termux / Android Model Downloads
+
+**Always use the browser for large HuggingFace model downloads on Termux.** The `hf` CLI and `huggingface_hub` Python `snapshot_download` both crash on large files due to a Rust XET backend panic (`JoinError::Panic`, `rustls-platform-verifier not initialized`). Don't waste time debugging the CLI — go straight to the browser.
+
+1. Go to huggingface.co, log in, browse to the model, download files directly from the browser
+2. Run `termux-setup-storage` if you haven't already (gives Termux access to Downloads)
+3. Move files: `mv ~/storage/downloads/<filename> ./<local-dir>/`
+
+HuggingFace tokens start with `hf_` — not `github_pat_`. Get one from huggingface.co → Settings → Access Tokens.
+
 Repository for ML models optimized for Qualcomm chipsets.
 
 ## First Session Setup
