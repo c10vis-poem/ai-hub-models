@@ -1,10 +1,10 @@
 name: Release - Slack Reminders
 
 on:
-  schedule:
-    - cron: '0 17 * * MON,TUE,WED' # Runs Mon / Tues / Weds at 3:00PM UTC (9AM PST)
+  # DISABLED: Scheduled runs have been commented out
+  # schedule:
+  #   - cron: '0 17 * * MON,TUE,WED' # Runs Mon / Tues / Weds at 3:00PM UTC (9AM PST)
 
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
     inputs:
       notify_release:
@@ -21,76 +21,8 @@ on:
         default: false
 
 jobs:
-  slack_notify_release:
+  disabled_notice:
+    name: Workflow Disabled
     runs-on: ubuntu-latest
     steps:
-      - id: calc_week_diff
-        name: Calculate week difference
-        run: |
-          # Get the current date in YYYY-MM-DD format
-          current_date=$(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M')
-          day_of_week=$(TZ=America/Los_Angeles date +%u)
-          reference_qaihm_release_date="2025-12-1 00:00"
-
-          # Calculate the difference in weeks
-          diff_seconds=$(( $(date -d "$current_date" +%s) - $(date -d "$reference_qaihm_release_date" +%s) ))
-          weeks_diff=$(( diff_seconds / 60 / 60 / 24 / 7 ))
-          is_release_week=$((weeks_diff % 2 == 0))
-
-          echo "is_release_week=$is_release_week" >> "$GITHUB_OUTPUT" # returns 1 on release week, 0 on non-release week
-          echo "day_of_week=$day_of_week" >> "$GITHUB_OUTPUT" # returns 1 for Monday, 2 for Tuesday, 3 for Wednesday
-
-      - id: notify_release
-        if: ${{ ( github.event_name != 'schedule' && inputs.notify_release ) || ( steps.calc_week_diff.outputs.is_release_week == 1 && steps.calc_week_diff.outputs.day_of_week == 1 ) }}
-        name: Notify Slack - Release
-        uses: slackapi/slack-github-action@v4
-        with:
-          method: chat.postMessage
-          token: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
-          payload: |
-            channel: "C05LEEK0N8J"
-            text: ":fast_forward: An AI Hub Models Release is scheduled for *today*. <https://qualcomm-confluence.atlassian.net/wiki/spaces/ML/pages/434866591/|Release Instructions>"
-
-      - id: notify_prep_llm_release
-        if: ${{ ( github.event_name != 'schedule' && inputs.notify_prep_release_llm ) || ( steps.calc_week_diff.outputs.is_release_week == 0 && steps.calc_week_diff.outputs.day_of_week == 1 ) }}
-        name: Notify Slack - Prep LLM Release
-        uses: slackapi/slack-github-action@v4
-        with:
-          method: chat.postMessage
-          token: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
-          payload: |
-            channel: "C05LEEK0N8J"
-            text: |-
-              :thread: An AI Hub Models Release is scheduled for next Monday.
-              Please merge any LLM code to be tested by GPU CI by *Tuesday at 5PM*.
-              Tested LLM changes or fixes must merge before Friday at 3PM.
-              <https://qualcomm-confluence.atlassian.net/wiki/spaces/ML/pages/434866591/|Release Instructions>
-
-              Please list any LLM changes that must be merged for Tuesday testing in this thread.
-
-      - id: notify_weekly_meeting
-        if: ${{ ( github.event_name != 'schedule' && inputs.notify_weekly_meeting ) || ( steps.calc_week_diff.outputs.day_of_week == 1 ) }}
-        name: Notify Slack - Weekly Meeting
-        uses: slackapi/slack-github-action@v4
-        with:
-          method: chat.postMessage
-          token: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
-          payload: |
-            channel: "C05LEEK0N8J"
-            text: ":thread: Topics for AI Hub Models Weekly, Tomorrow @ 10AM | <https://jira-dc.qualcomm.com/jira/browse/TETRAAI-158?filter=438807|JIRA> | <https://github.com/qcom-ai-hub/tetracode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aai-hub-models%2Cscorecard%2Cai-hub-apps%20-label%3AWebsite%20label%3Ap0%2Cp1|P1 Issues>"
-
-      - id: notify_prep_release
-        if: ${{ ( github.event_name != 'schedule' && inputs.notify_prep_release ) || ( steps.calc_week_diff.outputs.is_release_week == 0 && steps.calc_week_diff.outputs.day_of_week == 3 ) }}
-        name: Notify Slack - Prep Release
-        uses: slackapi/slack-github-action@v4
-        with:
-          method: chat.postMessage
-          token: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
-          payload: |
-            channel: "C05LEEK0N8J"
-            text: |-
-              :thread: An AI Hub Models Release is scheduled for next Monday.
-              *The code freeze for is Friday at 3PM.*
-              <https://qualcomm-confluence.atlassian.net/wiki/spaces/ML/pages/434866591/|Release Instructions>
-
-              Please list any changes needed for the release in this thread.
+      - run: echo "This workflow has been disabled by the repository owner"
