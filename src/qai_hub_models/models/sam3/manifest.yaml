@@ -3,9 +3,7 @@ id: sam3
 status: published
 headline: Open-vocabulary segmentation with text and visual prompts for any concept.
 domain: Computer Vision
-description: SAM3 (Segment Anything with Concepts) extends SAM2 with open-vocabulary
-  segmentation, producing bounding boxes and masks for objects matching a natural-language
-  prompt.
+description: SAM3 (Segment Anything with Concepts) extends SAM2 with open-vocabulary segmentation, producing bounding boxes and masks for objects matching a natural-language prompt.
 use_case: Semantic Segmentation
 tags:
 - foundation
@@ -39,6 +37,9 @@ has_on_target_demo: true
 disabled_paths: {}
 is_collection_model: true
 requires_aot_prepare: true
-pip_install_flags: git+https://github.com/facebookresearch/sam3.git@f66a2514dff3c032534fe236640c1e7c0f5c7677
 python_version_less_than: '3.13'
 python_version_less_than_reason: SAM3 hardcodes numpy 1.x as a requirement
+templates:
+- sam
+post_pip_install_commands:
+- pip install git+https://github.com/facebookresearch/sam3.git@f66a2514dff3c032534fe236640c1e7c0f5c7677

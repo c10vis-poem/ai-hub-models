@@ -3,9 +3,7 @@ id: statetransformer
 status: published
 headline: Multi-agent trajectory prediction model for autonomous driving.
 domain: Computer Vision
-description: StateTransformer is a transformer-based model designed for trajectory
-  prediction in self-driving scenarios. It integrates rasterized map data, agent context,
-  and temporal dynamics to generate accurate future trajectories.
+description: StateTransformer is a transformer-based model designed for trajectory prediction in self-driving scenarios. It integrates rasterized map data, agent context, and temporal dynamics to generate accurate future trajectories.
 use_case: Driver Assistance
 tags:
 - bu-auto
@@ -38,4 +36,5 @@ disabled_paths:
   float:
     qnn_dlc:
       scorecard_failure: 'Failing jobs: jgkd1d0yp'
-pip_install_flags: git+https://github.com/motional/nuplan-devkit.git@d60b4cd2071de9bb041509c43f5226dd22f248c0#egg=nuplan_devkit
+post_pip_install_commands:
+- pip install git+https://github.com/motional/nuplan-devkit.git@d60b4cd2071de9bb041509c43f5226dd22f248c0#egg=nuplan_devkit

@@ -2,13 +2,9 @@ name: Llama-v3-ELYZA-JP-8B
 id: llama_v3_elyza_jp_8b
 model_maker_id: ELYZA
 status: published
-headline: State-of-the-art large language model useful on a variety of language understanding
-  and generation tasks.
+headline: State-of-the-art large language model useful on a variety of language understanding and generation tasks.
 domain: Generative AI
-description: Llama-3-ELYZA-JP-8B is a lightweight LLM with only 8 billion parameters,
-  yet achieves Japanese language performance comparable to GPT-3.5 Turbo. The model
-  has undergone additional pre-training and post-training of Japanese to expand instruction-following
-  capabilities in Japanese.
+description: Llama-3-ELYZA-JP-8B is a lightweight LLM with only 8 billion parameters, yet achieves Japanese language performance comparable to GPT-3.5 Turbo. The model has undergone additional pre-training and post-training of Japanese to expand instruction-following capabilities in Japanese.
 use_case: Text Generation
 tags:
 - llm
@@ -28,16 +24,11 @@ has_animated_banner: true
 dataset: []
 technical_details:
   Supported languages: Japanese
-  TTFT: Time To First Token is the time it takes to generate the first response token.
-    This is expressed as a range because it varies based on the length of the prompt.
-    The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of
-    the prompt processor) and the upper bound is for a prompt using the full context
-    length (4096 tokens).
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (4096 tokens).
   Response Rate: Rate of response generation after the first response token.
 license_type: llama3
 research_paper: https://note.com/elyza/n/n360b6084fdbd
-research_paper_title: "GPT-4 \u3092\u4E0A\u56DE\u308B\u65E5\u672C\u8A9E\u6027\u80FD\
-  \u306ELLM Llama-3-ELYZA-JP \u3092\u958B\u767A\u3057\u307E\u3057\u305F"
+research_paper_title: "GPT-4 を上回る日本語性能のLLM Llama-3-ELYZA-JP を開発しました"
 source_repo: https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B
 license: https://huggingface.co/meta-llama/Meta-Llama-3-8B/blob/main/LICENSE
 restrict_model_sharing: true
@@ -60,8 +51,15 @@ orchestrator_runtimes:
 - geniex_qairt
 - genie
 only_allow_orchestrator_runtimes: true
-pip_install_flags_gpu: onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl
-  -f https://download.pytorch.org/whl/torch_stable.html
 local_device_deployment: true
 has_multi_graph: true
 separate_quantize_script: true
+datasets:
+- wikitext
+templates:
+- llama3
+- llm
+- lm_driver
+post_pip_install_commands:
+- command: pip install onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+  machine: gpu

@@ -71,10 +71,10 @@ def test_check_version_match(
             _check_version_match()
 
 
-# ── two-phase dispatch for export/evaluate ──────────────────────────
+# ── two-phase dispatch for export/evaluate/install ──────────────────
 
 
-@pytest.mark.parametrize("script", ["export", "evaluate"])
+@pytest.mark.parametrize("script", ["export", "evaluate", "install"])
 def test_dispatch_forwards_remaining_args_to_model_parser(script: str) -> None:
     """`<script> <model> --flag value` hands model-specific args to dispatch verbatim.
 

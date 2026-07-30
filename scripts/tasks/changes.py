@@ -58,7 +58,9 @@ LLM_GROUPS: list[list[str]] = [
         "falcon_v3_7b_instruct",
     ],
     [
-        "qwen3_4b",  # primary representative
+        "qwen3_0_6b",  # smallest, primary representative
+        "qwen3_1_7b",
+        "qwen3_4b",
         "qwen3_4b_instruct_2507",
         "qwen3_8b",
         "qwen2_7b_instruct",
@@ -74,7 +76,7 @@ LLM_GROUPS: list[list[str]] = [
 LLAMA_REPRESENTATIVE_EXPORT_FILE = (
     "src/qai_hub_models/models/llama_v3_2_1b_instruct/export.py"
 )
-QWEN_REPRESENTATIVE_EXPORT_FILE = "src/qai_hub_models/models/qwen3_4b/export.py"
+QWEN_REPRESENTATIVE_EXPORT_FILE = "src/qai_hub_models/models/qwen3_0_6b/export.py"
 QWEN_VL_REPRESENTATIVE_EXPORT_FILE = (
     "src/qai_hub_models/models/qwen3_vl_4b_instruct/export.py"
 )

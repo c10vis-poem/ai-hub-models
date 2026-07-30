@@ -3,9 +3,7 @@ id: sixd_repnet
 status: published
 headline: Head pose estimation using 6D rotation representation and RepVGG backbone.
 domain: Computer Vision
-description: 6DRepNet predicts head pose (pitch, yaw, roll) from a face image using
-  a RepVGG-B1g2 backbone and a continuous 6D rotation representation, achieving robust
-  and accurate head pose estimation.
+description: 6DRepNet predicts head pose (pitch, yaw, roll) from a face image using a RepVGG-B1g2 backbone and a continuous 6D rotation representation, achieving robust and accurate head pose estimation.
 use_case: Pose Estimation
 tags:
 - real-time
@@ -41,4 +39,7 @@ external_repos:
     commit_sha: 464b2ba55c3d9b3d3b707c6271cf329a983ded20
 has_on_target_demo: true
 is_collection_model: true
-pip_install_flags: git+https://github.com/elliottzheng/face-detection.git@786fbab
+templates:
+- imagenet_classifier
+post_pip_install_commands:
+- pip install git+https://github.com/elliottzheng/face-detection.git@786fbab

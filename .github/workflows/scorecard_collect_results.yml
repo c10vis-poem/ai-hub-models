@@ -412,15 +412,14 @@ jobs:
           # `git add` files have changed and commit them.
           #
           rm -rf src/qai_hub_models/scorecard/intermediates/perf-yamls
-          git ls-files -co src/qai_hub_models | grep "\/models/.*/perf.*\.yaml$" | xargs git add
-          git ls-files -co src/qai_hub_models | grep "\/models/.*/numerics.*\.yaml$" | xargs git add
-          git ls-files -co src/qai_hub_models | grep "\/models/.*/info.*\.yaml$" | xargs git add
-          git ls-files -co src/qai_hub_models | grep "\/models/.*/release-assets.*\.yaml$" | xargs git add
-          git ls-files -co src/qai_hub_models | grep "\/models/.*/code\-gen\.yaml$" | xargs git add
-          git ls-files -co src/qai_hub_models | grep "\/models/.*/export\.py$" | xargs git add
-          git ls-files -co src/qai_hub_models | grep "\/models/.*/evaluate\.py$" | xargs git add
-          git ls-files -co src/qai_hub_models | grep "\/scorecard/models/.*/test_generated\.py$" | xargs git add
-          git ls-files -co src/qai_hub_models | grep "\/models/.*/README\.md$" | xargs git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/perf.*\.yaml$" | xargs -r git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/numerics.*\.yaml$" | xargs -r git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/manifest\.yaml$" | xargs -r git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/release-assets.*\.yaml$" | xargs -r git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/export\.py$" | xargs -r git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/evaluate\.py$" | xargs -r git add
+          git ls-files -co src/qai_hub_models | grep "\/scorecard/models/.*/test_generated\.py$" | xargs -r git add
+          git ls-files -co src/qai_hub_models | grep "\/models/.*/README\.md$" | xargs -r git add
           git add README.md
           git add src/README.md
 
@@ -602,7 +601,11 @@ jobs:
               owner,
               repo,
               head: '${{ env.PR_REF_NAME }}',
-              base: 'main',
+              // Target the branch the scorecard was launched from; the commit
+              // is already reset onto previous_results_branch (scorecard.yml
+              // wires github.ref_name → previous_results_branch), so this
+              // opens the PR against the same branch instead of main.
+              base: '${{ inputs.previous_results_branch }}',
               body: [
                 'Update data for [${{ inputs.action_id || inputs.latest_results_branch }} scorecard](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ inputs.action_id == '' && github.run_id || inputs.action_id }}).',
                 '',

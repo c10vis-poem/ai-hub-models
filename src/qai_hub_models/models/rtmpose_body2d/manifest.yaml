@@ -3,8 +3,7 @@ id: rtmpose_body2d
 status: published
 headline: Human pose estimation.
 domain: Computer Vision
-description: RTMPose is a machine learning model that detects human pose and returns
-  a location and confidence for each of 133 joints.
+description: RTMPose is a machine learning model that detects human pose and returns a location and confidence for each of 133 joints.
 use_case: Pose Estimation
 tags: []
 applicable_scenarios:
@@ -40,4 +39,9 @@ supported_precisions:
 - float
 - w8a16
 has_on_target_demo: true
-pip_pre_build_reqs: mmpose==1.2.0 --no-deps
+datasets:
+- cocowholebody
+templates:
+- mmpose
+pre_pip_install_commands:
+- pip install mmpose==1.2.0 --no-deps

@@ -3,9 +3,7 @@ id: edgetam
 status: published
 headline: Real-time on-device track-anything video segmentation and tracking.
 domain: Computer Vision
-description: EdgeTAM is a lightweight and efficient version of SAM 2, optimized for
-  on-device tracking and segmenting any object in videos and low memory usage by using
-  a novel 2D Spatial Perceiver and RepViT backbone.
+description: EdgeTAM is a lightweight and efficient version of SAM 2, optimized for on-device tracking and segmenting any object in videos and low memory usage by using a novel 2D Spatial Perceiver and RepViT backbone.
 use_case: Semantic Segmentation
 tags:
 - foundation
@@ -46,4 +44,9 @@ supported_precisions:
 - w8a8
 has_on_target_demo: true
 is_collection_model: true
-pip_install_flags: git+https://github.com/facebookresearch/EdgeTAM.git@a1209a454c9950d531498074a95ecf3a3ba02dfd
+datasets:
+- sav
+templates:
+- sam2
+post_pip_install_commands:
+- pip install git+https://github.com/facebookresearch/EdgeTAM.git@a1209a454c9950d531498074a95ecf3a3ba02dfd

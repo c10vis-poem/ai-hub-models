@@ -1,24 +1,24 @@
 metrics:
-- dataset_name: flickr1024
-  dataset_link: https://yingqianwang.github.io/Flickr1024/
+- dataset_link: https://yingqianwang.github.io/Flickr1024/
+  dataset_name: flickr1024
   dataset_split_description: Flickr1024 dataset for stereo image super resolution
-  metric_name: Peak Signal-to-Noise Ratio (PSNR)
-  metric_description: A measure of how similar two images are.
-  metric_unit: dB
-  metric_range:
-    min: 0.0
-  metric_enablement_threshold: 10.0
-  num_partial_samples: 50
-  partial_torch_metric: 21.1
   device_metric:
     Samsung Galaxy S25:
       float:
-        qnn_context_binary:
-          partial_metric: 21.1
         precompiled_qnn_onnx:
+          partial_metric: 21.1
+        qnn_context_binary:
           partial_metric: 21.1
       w8a16:
-        qnn_context_binary:
-          partial_metric: 21.0
         precompiled_qnn_onnx:
           partial_metric: 21.0
+        qnn_context_binary:
+          partial_metric: 21.0
+  metric_description: A measure of how similar two images are.
+  metric_enablement_threshold: 10.0
+  metric_name: Peak Signal-to-Noise Ratio (PSNR)
+  metric_range:
+    min: 0.0
+  metric_unit: dB
+  num_partial_samples: 50
+  partial_torch_metric: 21.1

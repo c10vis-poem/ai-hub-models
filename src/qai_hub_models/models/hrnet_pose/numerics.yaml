@@ -1,34 +1,34 @@
 metrics:
-- dataset_name: coco_body
-  dataset_link: http://images.cocodataset.org/
+- dataset_link: http://images.cocodataset.org/
+  dataset_name: coco_detector_keypoints
   dataset_split_description: val2017 split
-  metric_name: Mean Average Precision
-  metric_description: Mean Average Precision (across predicted classes).
-  metric_unit: mAP
-  metric_range:
-    min: 0.0
-    max: 100.0
-  metric_enablement_threshold: 10.0
-  num_partial_samples: 1000
-  partial_torch_metric: 81.2
   device_metric:
     Samsung Galaxy S25:
       float:
-        tflite:
-          partial_metric: 81.3
-        qnn_dlc:
-          partial_metric: 81.3
         onnx:
-          partial_metric: 81.2
+          partial_metric: 68.6
+        qnn_dlc:
+          partial_metric: 68.4
+        tflite:
+          partial_metric: 68.4
       w8a16:
-        qnn_dlc:
-          partial_metric: 80.8
         onnx:
-          partial_metric: 80.8
+          partial_metric: 68.6
+        qnn_dlc:
+          partial_metric: 68.6
       w8a8:
-        tflite:
-          partial_metric: 80.2
-        qnn_dlc:
-          partial_metric: 80.3
         onnx:
-          partial_metric: 80.3
+          partial_metric: 68.3
+        qnn_dlc:
+          partial_metric: 68.3
+        tflite:
+          partial_metric: 68.1
+  metric_description: Mean Average Precision (across predicted classes).
+  metric_enablement_threshold: 10.0
+  metric_name: Mean Average Precision
+  metric_range:
+    max: 100.0
+    min: 0.0
+  metric_unit: mAP
+  num_partial_samples: 1000
+  partial_torch_metric: 68.6

@@ -47,12 +47,16 @@
         Whether the model supports on-device demo.
     has_model_requirements : bool, optional
         Whether model has additional pip requirements.
-    pip_pre_build_reqs : str, optional
-        Pre-build pip requirements.
-    pip_install_flags : str, optional
-        Additional pip install flags.
-    pip_install_flags_gpu : str, optional
-        GPU-specific pip install flags.
+    pre_pip_install_commands : list[str], optional
+        pip commands to run before the main install on a CPU-only host.
+    post_pip_install_commands : list[str], optional
+        pip commands to run after the main install on a CPU-only host.
+    pre_pip_install_commands_gpu : list[str], optional
+        pip commands to run before the main install on a GPU host.
+    post_pip_install_commands_gpu : list[str], optional
+        pip commands to run after the main install on a GPU host.
+    has_machine_gated_entries : bool, optional
+        If True, renders a GPU-specific installation section.
     python_version_gte : str, optional
         Minimum Python version.
     python_version_lt : str, optional
@@ -86,9 +90,11 @@
     supported_precisions=None,
     has_on_target_demo=False,
     has_model_requirements=False,
-    pip_pre_build_reqs=None,
-    pip_install_flags=None,
-    pip_install_flags_gpu=None,
+    pre_pip_install_commands=None,
+    post_pip_install_commands=None,
+    pre_pip_install_commands_gpu=None,
+    post_pip_install_commands_gpu=None,
+    has_machine_gated_entries=False,
     python_version_gte=None,
     python_version_lt=None,
     readme_install_system_deps=None,
@@ -135,7 +141,7 @@ This model is compatible with the Qualcomm Voice AI SDK. Download the SDK from t
 {% endif %}
 {% if include_example_and_usage %}
 
-{{ example_and_usage(model_id, model_package, supported_precisions, has_on_target_demo, has_model_requirements, pip_pre_build_reqs, pip_install_flags, pip_install_flags_gpu, python_version_gte, python_version_lt, readme_install_system_deps, readme_export_device=readme_export_device, local_device_deployment=local_device_deployment, default_runtime=default_runtime, default_precision=default_precision, separate_quantize_script=separate_quantize_script) }}
+{{ example_and_usage(model_id, model_package, supported_precisions, has_on_target_demo, has_model_requirements, pre_pip_install_commands, post_pip_install_commands, pre_pip_install_commands_gpu, post_pip_install_commands_gpu, has_machine_gated_entries, python_version_gte, python_version_lt, readme_install_system_deps, readme_export_device=readme_export_device, local_device_deployment=local_device_deployment, default_runtime=default_runtime, default_precision=default_precision, separate_quantize_script=separate_quantize_script) }}
 {% endif %}
 
 {{ license(model_name, license_url) }}

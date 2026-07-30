@@ -264,15 +264,17 @@ def test_llm_group_collapses_multiple_llamas() -> None:
 
 
 def test_llm_group_collapses_multiple_qwens() -> None:
-    """qwen3_4b is first in LLM_GROUPS[1], so it survives."""
+    """qwen3_0_6b is first (smallest) in LLM_GROUPS[1], so it survives."""
     models = {
+        "qwen3_0_6b",
         "qwen3_4b",
         "qwen3_8b",
         "qwen2_7b_instruct",
         "mobilenet_v2",
     }
     pruned = prune_llm_groups(models)
-    assert "qwen3_4b" in pruned
+    assert "qwen3_0_6b" in pruned
+    assert "qwen3_4b" not in pruned
     assert "qwen3_8b" not in pruned
     assert "qwen2_7b_instruct" not in pruned
     assert "mobilenet_v2" in pruned

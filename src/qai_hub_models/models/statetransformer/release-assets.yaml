@@ -1,12 +1,11 @@
 precisions:
   float:
     universal_assets:
-      tflite:
-        s3_key: pre_release_assets/gh_actions/27460081135/statetransformer-tflite-float.zip
-        tool_versions:
-          litert: 1.4.4
       onnx:
-        s3_key: pre_release_assets/gh_actions/27460081135/statetransformer-onnx-float.zip
+        s3_key: pre_release_assets/gh_actions/30148026651/statetransformer-onnx-float.zip
         tool_versions:
+          onnx_runtime: 1.27.1
           qairt: 2.45.0.260326154327
-          onnx_runtime: 1.25.0
+      tflite:
+        s3_key: pre_release_assets/gh_actions/30148026651/statetransformer-tflite-float.zip
+        tool_versions: {}

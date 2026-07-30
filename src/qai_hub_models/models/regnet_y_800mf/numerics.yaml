@@ -1,30 +1,30 @@
 metrics:
-- dataset_name: imagenet
+- benchmark_value: 76.4
   dataset_link: https://www.image-net.org/
+  dataset_name: imagenet
   dataset_split_description: validation split
-  metric_name: Top-1 Accuracy
-  metric_description: Percentage of top 1 model predictions that are correct.
-  metric_unit: '%'
-  metric_range:
-    min: 0.0
-    max: 100.0
-  metric_enablement_threshold: 10.0
-  benchmark_value: 76.4
-  num_partial_samples: 1000
-  partial_torch_metric: 75.5
   device_metric:
     Samsung Galaxy S25:
       float:
-        tflite:
-          partial_metric: 75.3
-        qnn_dlc:
-          partial_metric: 75.3
         onnx:
           partial_metric: 75.2
-      w8a8:
-        tflite:
-          partial_metric: 74.9
         qnn_dlc:
-          partial_metric: 75.5
+          partial_metric: 75.3
+        tflite:
+          partial_metric: 75.3
+      w8a8:
         onnx:
           partial_metric: 75.5
+        qnn_dlc:
+          partial_metric: 75.5
+        tflite:
+          partial_metric: 74.9
+  metric_description: Percentage of top 1 model predictions that are correct.
+  metric_enablement_threshold: 10.0
+  metric_name: Top-1 Accuracy
+  metric_range:
+    max: 100.0
+    min: 0.0
+  metric_unit: '%'
+  num_partial_samples: 1000
+  partial_torch_metric: 75.5

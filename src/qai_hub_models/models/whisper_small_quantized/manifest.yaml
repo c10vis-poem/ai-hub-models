@@ -53,3 +53,8 @@ orchestrator_runtimes:
 - voice_ai
 readme_install_system_deps: "#### Linux\n```bash\nsudo apt install ffmpeg libportaudio2\n
   ```\n\n#### Windows\n```\nwinget install ffmpeg\n```\n"
+templates:
+- hf_whisper
+- hf_whisper_quantized
+models:
+- whisper_small

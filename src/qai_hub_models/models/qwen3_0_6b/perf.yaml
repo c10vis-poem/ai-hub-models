@@ -318,6 +318,50 @@ precisions:
                   max: 2443.604
                   min: 76.362625
                 tokens_per_second: 27.68702
+  w4a16:
+    components:
+      Qwen3-0.6B:
+        performance_metrics:
+          Snapdragon 8 Elite Gen 5 QRD:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                desired_compute_unit: npu
+                prefill_tokens_per_second: 8806.329549
+                time_to_first_token_range_milliseconds:
+                  max: 465.12
+                  min: 14.535
+                tokens_per_second: 119.771461
+          Snapdragon 8 Elite QRD:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                desired_compute_unit: npu
+                prefill_tokens_per_second: 6490.213974
+                time_to_first_token_range_milliseconds:
+                  max: 631.104
+                  min: 19.722
+                tokens_per_second: 106.608032
+          Snapdragon X Elite CRD:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                desired_compute_unit: npu
+                prefill_tokens_per_second: 4252.632978
+                time_to_first_token_range_milliseconds:
+                  max: 963.168
+                  min: 30.099
+                tokens_per_second: 82.944423
+          Snapdragon X2 Elite CRD:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                desired_compute_unit: npu
+                prefill_tokens_per_second: 8561.300247
+                time_to_first_token_range_milliseconds:
+                  max: 478.432
+                  min: 14.951
+                tokens_per_second: 121.51222
 supported_chipsets:
 - qualcomm-snapdragon-8-elite-gen5
 - qualcomm-snapdragon-8-elite

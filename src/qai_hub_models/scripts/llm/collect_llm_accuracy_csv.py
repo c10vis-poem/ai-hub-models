@@ -86,6 +86,14 @@ def collect(directory: str) -> int:
         chipset = meta["chipset"]
         precision = meta["precision"]
         dataset_name = meta.get("dataset_name", PROMPTS_DATASET_NAME)
+        # The sidecar records the scorecard runtime; older/genie sidecars omit
+        # it and fall back to GENIE.
+        path_value = meta.get("path")
+        path = (
+            ScorecardProfilePath(path_value)
+            if path_value
+            else ScorecardProfilePath.GENIE
+        )
         score_pct = grade.get("score_pct")
         if score_pct is None:
             print(f"Skipping {os.path.basename(grade_path)}: no score_pct present.")
@@ -96,7 +104,7 @@ def collect(directory: str) -> int:
             model_name=model_id,
             chipset=chipset,
             precision=Precision.parse(precision),
-            path=ScorecardProfilePath.GENIE,
+            path=path,
             psnr_values=[],
             torch_accuracy=torch_accuracy,
             device_accuracy=float(score_pct),

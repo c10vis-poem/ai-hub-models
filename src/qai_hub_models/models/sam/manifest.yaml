@@ -1,15 +1,10 @@
 name: Segment-Anything-Model
 id: sam
 status: pending
-status_reason: No successful runtimes in scorecard (this field was auto-populated
-  by the scorecard run)
-headline: High-quality segmentation mask generation around any object in an image
-  with simple input prompt.
+status_reason: No successful runtimes in scorecard (this field was auto-populated by the scorecard run)
+headline: High-quality segmentation mask generation around any object in an image with simple input prompt.
 domain: Computer Vision
-description: Transformer based encoder-decoder where prompts specify what to segment
-  in an image thereby allowing segmentation without the need for additional training.
-  The image encoder generates embeddings and the lightweight decoder operates on the
-  embeddings for point and mask based image segmentation.
+description: Transformer based encoder-decoder where prompts specify what to segment in an image thereby allowing segmentation without the need for additional training. The image encoder generates embeddings and the lightweight decoder operates on the embeddings for point and mask based image segmentation.
 use_case: Semantic Segmentation
 tags:
 - foundation
@@ -44,5 +39,7 @@ disabled_paths:
     tflite:
       scorecard_failure: Some expected profile jobs were missing.
 is_collection_model: true
-pip_install_flags: git+https://github.com/facebookresearch/segment-anything.git@dca509f
-  --use-pep517
+templates:
+- sam
+post_pip_install_commands:
+- pip install git+https://github.com/facebookresearch/segment-anything.git@dca509f --use-pep517

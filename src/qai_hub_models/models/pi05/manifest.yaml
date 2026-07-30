@@ -1,13 +1,9 @@
 name: Pi0.5
 id: pi05
 status: published
-headline: State-of-the-art generalist robotic foundation model trained on vision,
-  language, and action to enable dexterous, zero-shot physical task execution across
-  diverse robot platforms.
+headline: State-of-the-art generalist robotic foundation model trained on vision, language, and action to enable dexterous, zero-shot physical task execution across diverse robot platforms.
 domain: Multimodal
-description: Pi0.5 is a vision-language-action model that co-trains on diverse data
-  sources (robot demos, web data, semantic subtasks) to enable open-world generalization
-  for long-horizon robotic manipulation.
+description: Pi0.5 is a vision-language-action model that co-trains on diverse data sources (robot demos, web data, semantic subtasks) to enable open-world generalization for long-horizon robotic manipulation.
 use_case: Robotics
 tags:
 - generative-ai
@@ -36,8 +32,10 @@ supported_precisions:
 default_device: Dragonwing IQ-9075 EVK
 is_collection_model: true
 requires_aot_prepare: true
-pip_install_flags: git+https://github.com/huggingface/transformers.git@fix/lerobot_openpi
-pip_install_flags_gpu: git+https://github.com/huggingface/transformers.git@fix/lerobot_openpi
-  onnxruntime-gpu==1.23.2
-  https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl
-  -f https://download.pytorch.org/whl/torch_stable.html
+templates:
+- llm
+post_pip_install_commands:
+- command: pip install git+https://github.com/huggingface/transformers.git@fix/lerobot_openpi
+  machine: cpu
+- command: pip install git+https://github.com/huggingface/transformers.git@fix/lerobot_openpi onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+  machine: gpu

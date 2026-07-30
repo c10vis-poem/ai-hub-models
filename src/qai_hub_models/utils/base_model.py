@@ -57,7 +57,7 @@ __all__ = [
 
 
 class SerializationSettings(NamedTuple):
-    use_pt2: bool = False
+    use_pt2: bool = True
     check_trace: bool = True
 
 

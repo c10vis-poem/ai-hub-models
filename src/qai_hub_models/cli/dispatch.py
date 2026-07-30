@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 from typing import cast
 
+from qai_hub_models.cli.install import main as install_main
 from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
 from qai_hub_models.utils.args import evaluate_parser, export_parser
 from qai_hub_models.utils.asset_loaders import (
@@ -196,10 +197,14 @@ def run_model_script(model_id: str, script: str, forwarded: list[str]) -> None:
         Model directory name (e.g. ``"mobilenet_v2"``). Must already be
         validated against ``MODEL_IDS`` by the caller.
     script
-        Script name (``"export"`` or ``"evaluate"``).
+        Script name (``"export"``, ``"evaluate"``, or ``"install"``).
     forwarded
         Argv tail handed to the model's parser.
     """
+    if script == "install":
+        install_main([model_id, *forwarded])
+        return
+
     resolved = resolve_model(model_id)
     if script == "export":
         parser = build_export_parser_for(resolved)
@@ -219,4 +224,6 @@ def run_model_script(model_id: str, script: str, forwarded: list[str]) -> None:
         select_evaluate_pipeline(resolved)(resolved.model_id, **vars(args))
         return
 
-    raise ValueError("This function currently only supports evaluate and export.")
+    raise ValueError(
+        "This function currently only supports evaluate, export, and install."
+    )

@@ -29,16 +29,17 @@ REGIONAL_MODELS = {
 
 
 @pytest.mark.parametrize("model_id", MODEL_IDS)
-def test_pip_flags_require_global_requirements_incompatible(model_id: str) -> None:
-    """If manifest.yaml sets pip_install_flags or pip_pre_build_reqs, the model's
+def test_pip_commands_require_global_requirements_incompatible(model_id: str) -> None:
+    """If manifest.yaml sets any pre/post pip install commands, the model's
     scorecard-config.yaml must have global_requirements_incompatible: true.
     """
     manifest = QAIHMModelManifest.from_model(model_id)
-    if manifest.pip_install_flags is None and manifest.pip_pre_build_reqs is None:
+    if not manifest.pre_pip_install_commands and not manifest.post_pip_install_commands:
         return
     assert manifest.scorecard_config.global_requirements_incompatible, (
-        f"{model_id}: pip_install_flags/pip_pre_build_reqs is set in manifest.yaml, "
-        "but global_requirements_incompatible is not true in scorecard-config.yaml."
+        f"{model_id}: pre_pip_install_commands/post_pip_install_commands is set in "
+        "manifest.yaml, but global_requirements_incompatible is not true in "
+        "scorecard-config.yaml."
     )
 
 

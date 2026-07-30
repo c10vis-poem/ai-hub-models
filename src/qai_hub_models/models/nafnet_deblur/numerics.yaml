@@ -1,26 +1,33 @@
 metrics:
-- dataset_name: reds
-  dataset_link: https://seungjunnah.github.io/Datasets/reds.html
+- dataset_link: https://seungjunnah.github.io/Datasets/reds.html
+  dataset_name: reds
   dataset_split_description: REDS dataset for image deblurring
-  metric_name: Peak Signal-to-Noise Ratio (PSNR)
-  metric_description: A measure of how similar the denoised image is to the clean original.
-  metric_unit: dB
-  metric_range:
-    min: 0.0
-  metric_enablement_threshold: 10.0
-  num_partial_samples: 50
-  partial_torch_metric: 29.4
   device_metric:
     Samsung Galaxy S25:
       float:
+        onnx:
+          partial_metric: 29.4
+        qnn_dlc:
+          partial_metric: 29.4
         tflite:
           partial_metric: 29.4
-        qnn_dlc:
-          partial_metric: 29.4
-        onnx:
-          partial_metric: 29.4
       w8a16:
-        qnn_dlc:
-          partial_metric: 29.4
         onnx:
           partial_metric: 29.4
+        qnn_dlc:
+          partial_metric: 29.4
+      w8a8:
+        onnx:
+          partial_metric: 28.6
+        qnn_dlc:
+          partial_metric: 28.6
+        tflite:
+          partial_metric: 28.6
+  metric_description: A measure of how similar the denoised image is to the clean original.
+  metric_enablement_threshold: 10.0
+  metric_name: Peak Signal-to-Noise Ratio (PSNR)
+  metric_range:
+    min: 0.0
+  metric_unit: dB
+  num_partial_samples: 50
+  partial_torch_metric: 29.4

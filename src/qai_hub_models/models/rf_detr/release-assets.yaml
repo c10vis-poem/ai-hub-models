@@ -1,12 +1,12 @@
 precisions:
   float:
     universal_assets:
-      qnn_dlc:
-        s3_key: pre_release_assets/gh_actions/28490132215/rf_detr-qnn_dlc-float.zip
-        tool_versions:
-          qairt: 2.45.0.260326154327
       onnx:
-        s3_key: pre_release_assets/gh_actions/28490132215/rf_detr-onnx-float.zip
+        s3_key: pre_release_assets/gh_actions/30148026651/rf_detr-onnx-float.zip
+        tool_versions:
+          onnx_runtime: 1.27.1
+          qairt: 2.45.0.260326154327
+      qnn_dlc:
+        s3_key: pre_release_assets/gh_actions/30148026651/rf_detr-qnn_dlc-float.zip
         tool_versions:
           qairt: 2.45.0.260326154327
-          onnx_runtime: 1.26.0

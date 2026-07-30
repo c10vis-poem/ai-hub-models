@@ -364,7 +364,15 @@ class AIMETOnnxQuantizableMixin(WorkbenchModel):
         print()
 
         from aimet_onnx.experimental.spinquant import apply_spinquant
+        from aimet_onnx.prepare_passes.fix_node_names_in_dynamo_exported_onnx import (
+            fix_node_names_pass,
+        )
         from aimet_onnx.utils import duplicate_shared_initializers
+
+        # Dynamo names ops generically (node_Conv_*), losing the /self_attn/
+        # v_proj/ scope R2's name-based V matcher needs. Restore /{module}/{Op}
+        # names first. See tetracode#20426.
+        fix_node_names_pass(onnx_model)
 
         # SpinQuant builds a ConnectedGraph, which (like QuantSim) rejects an
         # initializer shared across consumers of different op types (Qwen3's tied

@@ -7,12 +7,14 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any, Literal
 
 import requests
-from pydantic import Field, ValidationInfo, model_validator
+from pydantic import Field, ValidationInfo, model_serializer, model_validator
 from qai_hub_models_cli.proto import info_pb2, numerics_pb2
 from urllib3.util.retry import Retry
 
@@ -68,8 +70,79 @@ __all__ = [
     "MODEL_USE_CASE",
     "ExternalRepoConfig",
     "NumericsAccuracyBenchmark",
+    "PipCommand",
+    "PipCommandMachine",
     "QAIHMModelManifest",
 ]
+
+
+PipCommandMachine = Literal["any", "gpu", "cpu"]
+
+# Substrings that would let a pip command smuggle in extra shell operations
+# (chaining, redirects). These are inert inside any quoted region, so we
+# only scan for them outside of single/double quotes.
+_UNQUOTED_METACHAR_PATTERNS: tuple[str, ...] = (
+    "&&",
+    "||",
+    ";",
+    "|",
+    "&",
+    ">",
+    "<",
+    "\n",
+    "\r",
+    "\\",
+)
+
+# Substrings that trigger command substitution or variable expansion. In
+# POSIX shells these still fire inside double quotes (only single quotes
+# suppress them), so we reject them everywhere except inside single quotes.
+# No legitimate pip command needs ``$`` or a backtick in its arguments.
+_ALWAYS_REJECTED_PATTERNS: tuple[str, ...] = (
+    "`",
+    "$",
+)
+
+
+def _find_unquoted_shell_meta(cmd: str) -> str | None:
+    """Return the offending sequence if any shell metacharacter appears outside single quotes.
+
+    Also returns ``"<unbalanced quote>"`` if the command has an unclosed quote.
+    Returns ``None`` if the command is clean.
+    """
+    i = 0
+    in_single = False
+    in_double = False
+    while i < len(cmd):
+        c = cmd[i]
+        if in_single:
+            if c == "'":
+                in_single = False
+            i += 1
+            continue
+        for pat in _ALWAYS_REJECTED_PATTERNS:
+            if cmd.startswith(pat, i):
+                return pat
+        if in_double:
+            if c == '"':
+                in_double = False
+            i += 1
+            continue
+        if c == "'":
+            in_single = True
+            i += 1
+            continue
+        if c == '"':
+            in_double = True
+            i += 1
+            continue
+        for pat in _UNQUOTED_METACHAR_PATTERNS:
+            if cmd.startswith(pat, i):
+                return pat
+        i += 1
+    if in_single or in_double:
+        return "<unbalanced quote>"
+    return None
 
 
 URL_CACHE_TTL_SECONDS = 86400
@@ -174,6 +247,76 @@ class ExternalRepoConfig(BaseQAIHMConfig):
             raise ValueError("repo_url must not be empty.")
         if not self.commit_sha:
             raise ValueError("commit_sha must not be empty.")
+        return self
+
+
+class PipCommand(BaseQAIHMConfig):
+    """A single pip command to run before or after installing requirements.txt.
+
+    In YAML, an entry may be written either as a bare string (when no
+    ``machine`` gate is needed) or as a mapping::
+
+        pre_pip_install_commands:
+        - pip install foo             # bare string, machine="any"
+        - command: pip install bar    # mapping form, needed to set machine
+          machine: gpu
+
+    Every command must start with ``"pip "``. Shell metacharacters are
+    rejected so a config entry cannot smuggle in arbitrary commands.
+
+    The ``machine`` field gates when the command runs:
+      - ``"any"`` (default) runs on every host.
+      - ``"gpu"`` runs only when a CUDA GPU is detected on the host.
+      - ``"cpu"`` runs only when no CUDA GPU is detected.
+    """
+
+    command: str
+    machine: PipCommandMachine = "any"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _lift_bare_string(cls, data: Any) -> Any:
+        if isinstance(data, str):
+            return {"command": data}
+        return data
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: Any) -> Any:
+        if self.machine == "any":
+            return self.command
+        return handler(self)
+
+    @model_validator(mode="after")
+    def check_fields(self) -> PipCommand:
+        cmd = self.command.strip()
+        if not cmd:
+            raise ValueError("pip command must not be empty.")
+        # The manifest is trusted config, but we still enforce a narrow shape
+        # so the install list can be audited for security-relevant changes.
+        # The command is passed through the shell downstream, so any
+        # unquoted metacharacter would let a config entry smuggle in
+        # arbitrary commands.
+        try:
+            tokens = shlex.split(cmd)
+        except ValueError as e:
+            raise ValueError(
+                f"pip command is not a valid shell token sequence: {self.command!r} ({e})"
+            ) from e
+        if not tokens or tokens[0] != "pip":
+            raise ValueError(
+                f"pip command must start with 'pip '. Got: {self.command!r}"
+            )
+        if len(tokens) < 2:
+            raise ValueError(
+                f"pip command must have at least one argument after 'pip'. "
+                f"Got: {self.command!r}"
+            )
+        offender = _find_unquoted_shell_meta(cmd)
+        if offender is not None:
+            raise ValueError(
+                f"pip command must not contain shell metacharacter {offender!r} "
+                f"outside of a quoted string (found in {self.command!r})."
+            )
         return self
 
 
@@ -348,6 +491,11 @@ class QAIHMModelManifest(BaseQAIHMConfig):
     # Keys are repo names used as import paths (e.g., "gkt" -> external_repos.gkt.module).
     external_repos: dict[str, ExternalRepoConfig] | None = None
 
+    # Direct dependencies on other model folders under qai_hub_models/models/.
+    # Only the model's own direct imports; transitive deps are captured in
+    # the depended-on model's own manifest.yaml.
+    models: list[str] = Field(default_factory=list)
+
     # Whether the model is quantized with aimet.
     is_aimet: bool = False
 
@@ -401,22 +549,29 @@ class QAIHMModelManifest(BaseQAIHMConfig):
     # If set, only the runtimes in orchestrator runtimes will be supported.
     only_allow_orchestrator_runtimes: bool = False
 
-    # Requirements that must be pre-installed before installing the general model requirements.
+    # pip commands to run before ``pip install -r requirements.txt`` (or the
+    # equivalent extras install of qai-hub-models[model]).
     #
-    # Eg. for example, `pip install qai_hub_models[model]` won't work,
-    # but `pip install package_a package_b ...; pip install qai_hub_models[model]` does work.
+    # Each entry is a :class:`PipCommand`. Every command must start with
+    # ``"pip "`` and contain no shell metacharacters outside of quoted
+    # strings; the ``machine`` field gates execution on CPU-only / GPU hosts.
     #
-    # This setting defines what "package_a package_b ..." is.
-    #
-    # This is required when a package needs to be built from source by pip but
-    # doesn't have its requirements set up correctly.
-    pip_pre_build_reqs: str | None = None
+    # Typical uses:
+    #   - Pre-install a package that ``requirements.txt`` needs at build time
+    #     (e.g. ``pip install "torch>=2.1"`` before a wheel that builds against
+    #     torch but doesn't declare it as a build dep).
+    #   - Install from a custom index on a specific host type
+    #     (e.g. a CPU-only torch build for machines without a CUDA GPU).
+    pre_pip_install_commands: list[PipCommand] = Field(default_factory=list)
 
-    # If extra flags are needed when pip installing for this model, provide them here
-    pip_install_flags: str | None = None
-
-    # If extra flags are needed when pip installing for this model on GPU, provide them here
-    pip_install_flags_gpu: str | None = None
+    # pip commands to run after ``pip install -r requirements.txt``.
+    #
+    # Typical uses:
+    #   - Install a package straight from a git URL (which cannot go in
+    #     ``requirements.txt`` when other pip flags are required).
+    #   - Overwrite a transitively-installed package with a GPU-specific build
+    #     (e.g. ``onnxruntime-gpu`` and an AIMET wheel on GPU hosts).
+    post_pip_install_commands: list[PipCommand] = Field(default_factory=list)
 
     # A comma separated list of metrics to print in the inference summary of `export.py`.
     inference_metrics: str = "psnr"
@@ -791,10 +946,18 @@ class QAIHMModelManifest(BaseQAIHMConfig):
         if precision and not runtime.supports_precision(precision):
             return f"{runtime} does not support precision {precision!s}."
 
-        if self.requires_aot_prepare and not runtime.is_aot_compiled:
+        if (
+            self.requires_aot_prepare
+            and not runtime.is_aot_compiled
+            and runtime != TargetRuntime.GENIEX_LLAMACPP
+        ):
             return "Only runtimes that are compiled to context binary ahead of time are supported."
 
-        if self.has_multi_graph and not runtime.uses_hub_link:
+        if (
+            self.has_multi_graph
+            and not runtime.uses_hub_link
+            and runtime != TargetRuntime.GENIEX_LLAMACPP
+        ):
             return "Multi-graph models require runtimes that support linking (uses_hub_link)."
 
         if (

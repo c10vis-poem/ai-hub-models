@@ -500,8 +500,11 @@ def add_numerics_parser(
     return parser
 
 
+_HEAVY_DISPATCH_SCRIPTS = ("export", "evaluate", "install")
+
+
 def _dispatch_export_or_evaluate(script: str, raw_args: list[str]) -> None:
-    """Run ``qai-hub-models {export,evaluate} <model> [model-args...]``.
+    """Run ``qai-hub-models {export,evaluate,install} <model> [model-args...]``.
 
     Resolves the model name -> id, then hands the remaining args to the model's
     own ``build_parser()``/``main()`` (via the heavy-side dispatcher) so that
@@ -623,6 +626,23 @@ def add_evaluate_parser(
         description=(
             f"Run `{CLI_NAME} evaluate <model> --help` to see the model's "
             "native evaluate options."
+        ),
+        args=[("model", str)],
+    )
+
+
+def add_install_parser(
+    subparsers: argparse._SubParsersAction,
+) -> argparse.ArgumentParser:
+    return add_qaihm_required_help_only_parser(
+        subparsers,
+        name="install",
+        helpmsg="Install a model and all of its declared dependencies.",
+        description=(
+            f"Run `{CLI_NAME} install <model>` to walk the model's dependency graph "
+            "(datasets, shared templates, other models) and install each node's "
+            "requirements exactly once. Shared deps between two models install only "
+            "once. Use `--dry-run` to preview the plan."
         ),
         args=[("model", str)],
     )
@@ -1416,6 +1436,7 @@ def _build_parser() -> argparse.ArgumentParser:
     add_versions_parser(subparsers)
     add_export_parser(subparsers)
     add_evaluate_parser(subparsers)
+    add_install_parser(subparsers)
     if use_internal_releases() or is_internal_repo():
         add_validate_aws_parser(subparsers)
 
@@ -1428,6 +1449,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "find",
         ],
         "Customized Models (export from source)": [
+            "install",
             "export",
             "evaluate",
         ],
@@ -1452,11 +1474,12 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(args: list[str] | None = None) -> None:
     _check_version_match()
 
-    # `export`/`evaluate` route through the model's own parser, not ours. Sniff
-    # for them before constructing the lean parser so argparse doesn't try to
-    # consume `--help` or unknown model-specific flags at this layer.
+    # `export`/`evaluate`/`install` route through the heavy-side dispatcher,
+    # not this parser. Sniff for them before constructing the lean parser so
+    # argparse doesn't try to consume `--help` or unknown model-specific flags
+    # at this layer.
     raw = sys.argv[1:] if args is None else args
-    if raw and raw[0] in ("export", "evaluate") and is_heavy_package_installed():
+    if raw and raw[0] in _HEAVY_DISPATCH_SCRIPTS and is_heavy_package_installed():
         try:
             _dispatch_export_or_evaluate(raw[0], raw[1:])
         except Exception as e:

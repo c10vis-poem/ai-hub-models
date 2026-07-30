@@ -2,8 +2,7 @@ name: CVT
 id: cvt
 status: published
 headline: Construct a map view from sensors mounted on a vehicle.
-description: Cross-View Transformer generates real-time bird's-eye view maps from
-  multiple vehicle cameras for autonomous driving.
+description: Cross-View Transformer generates real-time bird's-eye view maps from multiple vehicle cameras for autonomous driving.
 domain: Computer Vision
 use_case: Driver Assistance
 tags: []
@@ -39,4 +38,9 @@ supported_precisions:
 - float
 - w8a16_mixed_int16
 has_on_target_demo: true
-pip_pre_build_reqs: nuscenes-devkit==1.2.0 --no-deps
+datasets:
+- nuscenes
+templates:
+- cvt_gkt
+pre_pip_install_commands:
+- pip install nuscenes-devkit==1.2.0 --no-deps

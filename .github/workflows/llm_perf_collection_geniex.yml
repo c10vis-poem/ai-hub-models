@@ -10,6 +10,7 @@ run-name: "GenieX Perf (${{ inputs.model || 'all' }}, ${{ inputs.device || 'all'
 env:
   VENV_PATH: build/ci-envs/qaihm-build
   QAIHM_CI: 1
+  QAIHM_TEST_DEVICES_RESOLVED: ${{ inputs.device == 'default' && 'cs_8_elite_qrd' || inputs.device || 'all' }}
 
 on:
   # Allows this workflow to be manually triggered.
@@ -53,6 +54,15 @@ on:
         type: string
         default: ''
 
+      scope:
+        description: 'Collection scope: perf (TPS/TTFT sweep + perf.yaml PR), accuracy (100-prompt LLM-as-judge eval only), or perf_and_accuracy (both).'
+        default: perf
+        type: choice
+        options:
+          - perf
+          - accuracy
+          - perf_and_accuracy
+
       create_pr:
         description: 'Create PR with perf.yaml changes'
         default: true
@@ -90,11 +100,15 @@ on:
         type: string
         default: ''
 
+      scope:
+        description: 'Collection scope: perf, accuracy, or perf_and_accuracy.'
+        type: string
+        default: perf
+
       create_pr:
         description: 'Create PR with perf.yaml changes'
         type: boolean
         default: true
-
 
 defaults:
   run:
@@ -147,6 +161,10 @@ jobs:
       with:
         python-version: USE_EXISTING_INSTALL
         venv-path: ${{ env.VENV_PATH }}
+        # geniex_jobs imports transformers (host-side chat templating for the
+        # accuracy eval), which only ships in global_requirements. Mirrors genie's
+        # collection job so the two runtimes install the same deps.
+        bnt-venv-install-cmd: install_global_requirements
         aws-role-arn: ${{ secrets.QAIHM_CI_AWS_ROLE_ARN }}
 
     - name: Install qai_hub_models from source
@@ -180,6 +198,7 @@ jobs:
         GENIEX_BENCH_PLUGIN: ${{ inputs.geniex_bench_plugin || 'all' }}
         GENIEX_BENCH_PRECISIONS: ${{ inputs.precision || 'default' }}
         GENIEX_VERSION: ${{ inputs.geniex_version || '' }}
+        GENIEX_SCOPE: ${{ inputs.scope || 'perf' }}
         QAIHM_LLM_PERF_RELEASE_ASSETS: ${{ inputs.release_assets_action_id != '' && format('{0}/llm-release-assets/release-assets.yaml', github.workspace) || '' }}
       run: |
         source ${{ env.VENV_PATH }}/bin/activate
@@ -187,6 +206,14 @@ jobs:
         extra=()
         if [ -n "$GENIEX_VERSION" ]; then
           extra+=(--geniex-version "$GENIEX_VERSION")
+        fi
+        # scope=accuracy|perf_and_accuracy collects the 100-prompt eval;
+        # scope=accuracy skips the perf sweep (and perf.yaml updates) entirely.
+        if [ "$GENIEX_SCOPE" != "perf" ]; then
+          extra+=(--run-eval)
+        fi
+        if [ "$GENIEX_SCOPE" = "accuracy" ]; then
+          extra+=(--no-run-perf)
         fi
         python -m qai_hub_models.scripts.run_geniex_bench_benchmarks submit \
           --models "$QAIHM_MODELS" \
@@ -205,6 +232,7 @@ jobs:
         GENIEX_BENCH_PLUGIN: ${{ inputs.geniex_bench_plugin || 'all' }}
         GENIEX_BENCH_PRECISIONS: ${{ inputs.precision || 'default' }}
         GENIEX_VERSION: ${{ inputs.geniex_version || '' }}
+        GENIEX_SCOPE: ${{ inputs.scope || 'perf' }}
         QAIHM_LLM_PERF_RELEASE_ASSETS: ${{ inputs.release_assets_action_id != '' && format('{0}/llm-release-assets/release-assets.yaml', github.workspace) || '' }}
       run: |
         source ${{ env.VENV_PATH }}/bin/activate
@@ -212,6 +240,12 @@ jobs:
         extra=()
         if [ -n "$GENIEX_VERSION" ]; then
           extra+=(--geniex-version "$GENIEX_VERSION")
+        fi
+        if [ "$GENIEX_SCOPE" != "perf" ]; then
+          extra+=(--run-eval)
+        fi
+        if [ "$GENIEX_SCOPE" = "accuracy" ]; then
+          extra+=(--no-run-perf)
         fi
         python -m qai_hub_models.scripts.run_geniex_bench_benchmarks collect \
           --models "$QAIHM_MODELS" \
@@ -240,6 +274,23 @@ jobs:
           ${{ github.workspace }}/geniex_bench_results.csv
           ${{ github.workspace }}/geniex_bench_results/**/*.json
 
+    - name: Stage eval results for grading
+      if: ${{ !cancelled() && inputs.scope != 'perf' }}
+      run: |
+        mkdir -p "$GITHUB_WORKSPACE/llm-perf-results"
+        find "$GITHUB_WORKSPACE" -maxdepth 2 -type f \
+          \( -name '*_eval.json' -o -name '*_eval.meta.json' \) \
+          -exec cp {} "$GITHUB_WORKSPACE/llm-perf-results/" \;
+
+    - name: Upload eval results
+      if: ${{ !cancelled() && inputs.scope != 'perf' }}
+      uses: actions/upload-artifact@v7
+      with:
+        # Runtime-scoped so this doesn't collide with the genie workflow.
+        name: llm-perf-results-geniex-${{ matrix.pool }}
+        path: llm-perf-results/
+        if-no-files-found: ignore
+
     - name: Upload geniex perf.yaml updates
       id: upload-perf-updates
       if: ${{ !cancelled() }}
@@ -256,7 +307,8 @@ jobs:
   consolidate_pr:
     name: "Consolidate Perf Updates → PR"
     needs: collect_geniex_bench_perf
-    if: ${{ !cancelled() && inputs.create_pr }}
+    # Accuracy-only runs produce no perf.yaml manifest, so skip the PR entirely.
+    if: ${{ !cancelled() && inputs.create_pr && inputs.scope != 'accuracy' }}
     runs-on: [tetra-ubuntu-2204, self-hosted]
     timeout-minutes: 60
     permissions:
@@ -315,21 +367,21 @@ jobs:
       if: ${{ steps.check_changes.outputs.has_changes == 'true' }}
       env:
         QAIHM_TEST_MODELS: ${{ inputs.model || 'all' }}
-        QAIHM_TEST_DEVICES: ${{ inputs.device || 'all' }}
+        QAIHM_TEST_DEVICES: ${{ env.QAIHM_TEST_DEVICES_RESOLVED }}
       run: |
-        branch_name="perf/geniex-perf-${{ github.run_id }}"
-        cd $GITHUB_WORKSPACE
-        git config user.name 'github-actions[bot]'
-        git config user.email 'github-actions[bot]@users.noreply.github.com'
-        git checkout -b "$branch_name"
-        git ls-files -co --exclude-standard | grep 'perf.yaml' | xargs git add
-        git commit -m "Add GenieX performance numbers
+        branch_name=perf/geniex-perf-${{ github.run_id }}
+        cd $GITHUB_WORKSPACE && \
+          git config user.name 'github-actions[bot]' && \
+          git config user.email 'github-actions[bot]@users.noreply.github.com' && \
+          git checkout -b $branch_name && \
+          git ls-files -co --exclude-standard | grep 'perf.yaml' | xargs git add && \
+          git commit -m "Add GenieX performance numbers
 
         Models: $QAIHM_TEST_MODELS
         Devices: $QAIHM_TEST_DEVICES
 
-        Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
-        git push -u origin "$branch_name"
+        Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>" && \
+          git push -u origin $branch_name
         echo "branch_name=$branch_name" >> "$GITHUB_OUTPUT"
 
     - name: Upload consolidated perf.yaml files
@@ -344,7 +396,7 @@ jobs:
       uses: actions/github-script@v9
       env:
         QAIHM_TEST_MODELS: ${{ inputs.model || 'all' }}
-        QAIHM_TEST_DEVICES: ${{ inputs.device || 'all' }}
+        QAIHM_TEST_DEVICES: ${{ env.QAIHM_TEST_DEVICES_RESOLVED }}
       with:
         github-token: ${{ secrets.STAGING_GH_TOKEN }}
         result-encoding: string
@@ -381,3 +433,24 @@ jobs:
           }
           console.log('PR created:', result.data.html_url);
           return result.data.html_url;
+
+  grade_responses:
+    name: "Grade LLM Responses"
+    needs: collect_geniex_bench_perf
+    # Grading needs a GPU pod; only run it when an accuracy eval was collected.
+    if: ${{ !cancelled() && inputs.scope != 'perf' }}
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+      actions: read
+    uses: ./.github/workflows/gpu_pod_lifecycle.yml
+    with:
+      is_grader: true
+      runner-id: geniex-perf-grader-${{ github.run_id }}-${{ github.run_attempt }}
+      gpu-request: '1'
+      cpu-request: '8'
+      memory-request: '256Gi'
+      grader_artifacts_run_id: ${{ github.run_id }}
+      split_name: geniex
+    secrets: inherit

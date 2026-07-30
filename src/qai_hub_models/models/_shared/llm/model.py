@@ -3695,23 +3695,28 @@ class LLMDynamic_AIMETOnnx(LLM_AIMETOnnx):
 
         return inputs
 
-    def get_calibration_data(  # type: ignore[override]
+    def _prefill_from_dataset_cls(
         self,
-        num_samples: int = 0,
-        input_spec: InputSpec | None = None,
-        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
-        context_length: int = DEFAULT_CONTEXT_LENGTH,
-        image_size: tuple[int, int] | None = None,
+        dataset_cls: type[BaseDataset],
+        num_samples: int,
+        sequence_length: int,
+        context_length: int,
     ) -> DatasetEntries | None:
+        """Instantiate a text dataset, prefill it, and return hub dataset entries.
+
+        Shared by get_calibration_data and get_weight_optimization_data so both
+        run through the same WikiText-style prefill path. ``dataset_cls`` must
+        yield text samples that collate to (input_ids, attention_mask, ...) --
+        WikiText, GeneratedDataset, and their interleave all satisfy this.
+        """
         from qai_hub_models.datasets import instantiate_dataset
-        from qai_hub_models.datasets.wikitext import WikiText
         from qai_hub_models.models._shared.llm.generator_factory import make_generator
 
         if num_samples == 0:
             num_samples = math.ceil(80000 / context_length)
 
         dataset = instantiate_dataset(
-            WikiText,
+            dataset_cls,
             DatasetSplit.TRAIN,
             input_spec=None,
             tokenizer=self.tokenizer,
@@ -3750,9 +3755,31 @@ class LLMDynamic_AIMETOnnx(LLM_AIMETOnnx):
             dataloader,
             num_inputs=len(input_spec),
             sample_to_kwargs=text_sample_to_kwargs,
-            desc="Pre-filling calibration data (WikiText)",
+            desc=f"Pre-filling data ({dataset_cls.dataset_name()})",
         )
         return make_hub_dataset_entries(tuple(inputs), list(input_spec.keys()))
+
+    def get_calibration_data(  # type: ignore[override]
+        self,
+        num_samples: int = 0,
+        input_spec: InputSpec | None = None,
+        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
+        context_length: int = DEFAULT_CONTEXT_LENGTH,
+        image_size: tuple[int, int] | None = None,
+    ) -> DatasetEntries | None:
+        # Default: calibrate on WikiText. Models needing a different calibration
+        # set (e.g. an interleave of self-generated text + WikiText) override
+        # this and get_weight_optimization_data, reusing _prefill_from_dataset_cls.
+        # Lazy import: keeps this module importable without transformers (WikiText
+        # imports it), as the rest of the module's transformers use is deferred.
+        from qai_hub_models.datasets.wikitext import WikiText
+
+        return self._prefill_from_dataset_cls(
+            WikiText,
+            num_samples=num_samples,
+            sequence_length=sequence_length,
+            context_length=context_length,
+        )
 
     def get_weight_optimization_data(
         self,

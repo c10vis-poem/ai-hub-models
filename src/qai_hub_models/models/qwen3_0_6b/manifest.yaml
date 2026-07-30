@@ -40,9 +40,14 @@ license: https://huggingface.co/Qwen/Qwen3-0.6B/blob/main/LICENSE
 model_type_llm: true
 llm_details:
   call_to_action: Download and View Readme
-  genie_compatible: false
+  genie_compatible: true
   geniex_llamacpp_compatible: true
+  devices: {}
 runtime_technical_details:
+  geniex_qairt:
+    Input sequence length for Prompt Processor: '128'
+    Context lengths: 512, 1024, 2048, 3072, 4096
+    Minimum QNN SDK version required: 2.45.0
   geniex_llamacpp:
     model_infer_id: unsloth/Qwen3-0.6B-GGUF
     Quantization Type: Q4_0 (GGUF)
@@ -53,8 +58,26 @@ numerics_benchmark:
   value: 94.9
   unit: '%'
   source: AI Hub Models Reference Eval
+is_aimet: true
 supported_precisions:
+- w4a16
 - q4_0
-skip_example_usage: true
+is_collection_model: true
+requires_aot_prepare: true
 orchestrator_runtimes:
+- geniex_qairt
 - geniex_llamacpp
+- genie
+only_allow_orchestrator_runtimes: true
+local_device_deployment: true
+has_multi_graph: true
+separate_quantize_script: true
+post_pip_install_commands:
+- command: pip install onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.35.0/aimet_onnx-2.35.0+cu126-cp310-abi3-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+  machine: gpu
+disabled_paths:
+  w4a16:
+    geniex_qairt:
+      scorecard_accuracy_failure: 'Device accuracy (70.3 %) deviates from benchmark (94.9 %) by -24.600 %, threshold: 10.0 %'
+    genie:
+      scorecard_accuracy_failure: 'Device accuracy (70.3 %) deviates from benchmark (94.9 %) by -24.600 %, threshold: 10.0 %'

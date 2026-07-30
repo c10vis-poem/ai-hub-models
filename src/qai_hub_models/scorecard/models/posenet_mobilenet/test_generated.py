@@ -167,7 +167,7 @@ def test_compile(
         compile_via_export(
             compile_model,
             MODEL_ID,
-            Model.from_pretrained(),
+            Model.from_pretrained(**get_model_kwargs(Model, dict(precision=precision))),
             precision,
             scorecard_path,
             device,
@@ -193,7 +193,7 @@ def test_link(
         link_via_export(
             link_model,
             MODEL_ID,
-            Model.from_pretrained(),
+            Model.from_pretrained(**get_model_kwargs(Model, dict(precision=precision))),
             precision,
             scorecard_path,
             device,
@@ -218,7 +218,7 @@ def test_profile(
         profile_via_export(
             profile_model,
             MODEL_ID,
-            Model.from_pretrained(),
+            Model.from_pretrained(**get_model_kwargs(Model, dict(precision=precision))),
             precision,
             scorecard_path,
             device,
@@ -256,7 +256,9 @@ def test_inference(
             inference_via_export(
                 inference_model,
                 MODEL_ID,
-                Model.from_pretrained(),
+                Model.from_pretrained(
+                    **get_model_kwargs(Model, dict(precision=precision))
+                ),
                 precision,
                 scorecard_path,
                 device,
@@ -374,7 +376,9 @@ def test_val_accuracy(
             accuracy_on_sample_inputs_via_export(
                 export_model,
                 MODEL_ID,
-                Model.from_pretrained(),
+                Model.from_pretrained(
+                    **get_model_kwargs(Model, dict(precision=precision))
+                ),
                 precision,
                 scorecard_path,
                 device,

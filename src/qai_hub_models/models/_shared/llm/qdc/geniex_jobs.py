@@ -4,28 +4,53 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import importlib
 import json
 import os
+import pathlib
+import re
 import shutil
 import tempfile
+import zipfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from qualcomm_device_cloud_sdk.models import ArtifactType
+from transformers import AutoTokenizer
 
 from qai_hub_models.models._shared.llm.common import JobOutcome
+from qai_hub_models.models._shared.llm.model import LLMBase
 from qai_hub_models.models._shared.llm.qdc.qdc_jobs import (
     QDCDevice,
     QDCJobs,
     create_zip,
 )
+from qai_hub_models.scorecard import ScorecardProfilePath
 
 GENIEX_BENCH_JOB_TIMEOUT = 21600  # 6 hours
+
+DEFAULT_LLM_SYSTEM_PROMPT = LLMBase.default_system_prompt
+
+# The built-in 100-prompt accuracy set, shared with the genie eval path.
+DEFAULT_EVAL_PROMPTS_PATH = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "eval_prompts.json")
+)
 
 # Versioned URLs follow the geniex release workflow's flat S3 layout
 # (<stem>-<vX.Y.Z>.<ext>); the unversioned mirror is refreshed on every
 # stable tag and is used when no version is pinned.
 _S3_BASE = "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-geniex"
+
+
+def _safe_extract_zip(zip_path: str, dest_dir: str) -> None:
+    """Extract a device log archive, rejecting zip-slip members (mirrors genie_jobs)."""
+    safe_root = pathlib.Path(dest_dir).resolve()
+    with zipfile.ZipFile(zip_path) as zf:
+        for member in zf.namelist():
+            dest = (safe_root / member).resolve()
+            if not str(dest).startswith(str(safe_root) + os.sep):
+                raise ValueError(f"Zip slip detected in log archive: {member}")
+        zf.extractall(safe_root)
 
 
 def _bench_url(platform_stem: str, ext: str, version: str | None) -> str:
@@ -36,6 +61,13 @@ def _bench_url(platform_stem: str, ext: str, version: str | None) -> str:
 DEFAULT_CONTEXT_LENGTHS = [512, 1024, 4096]
 
 _N_GEN = 128
+
+# Each accuracy prompt runs as its own geniex-bench process: the timeout kills a
+# crashed/hung DSP run so the loop advances, the sleep lets the DSP release
+# before the next process attaches.
+_EVAL_N_GEN = 4096
+_EVAL_TIMEOUT_S = 600
+_EVAL_SLEEP_S = 10
 
 
 @dataclass
@@ -63,6 +95,8 @@ class GenieXBenchArtifactHandler(ABC):
         plugin: str,
         qairt_bundles: dict[str, str] | None,
         geniex_version: str | None,
+        eval_prompts: list[str] | None,
+        run_perf: bool,
     ) -> str:
         raise NotImplementedError
 
@@ -70,6 +104,47 @@ class GenieXBenchArtifactHandler(ABC):
     @abstractmethod
     def entry_script(self) -> str | None:
         raise NotImplementedError
+
+    @staticmethod
+    def _stage_eval_prompts(
+        dest_dir: os.PathLike | str, eval_prompts: list[str]
+    ) -> None:
+        """Write chat-templated prompts to prompts/prompt_NNN.txt in the artifact.
+
+        The device script feeds each file to its own `geniex-bench --accuracy
+        --prompt-file` process; presence of the directory is what turns eval on.
+        """
+        prompts_dir = os.path.join(dest_dir, "prompts")
+        os.makedirs(prompts_dir, exist_ok=True)
+        for idx, prompt in enumerate(eval_prompts):
+            with open(
+                os.path.join(prompts_dir, f"prompt_{idx:03d}.txt"),
+                "w",
+                encoding="utf-8",
+            ) as f:
+                f.write(prompt)
+
+    @staticmethod
+    def _apply_common_replacements(
+        text: str,
+        context_lengths: list[int],
+        run_perf: bool,
+        eval_prompts: list[str] | None,
+    ) -> str:
+        """Substitute the placeholders shared by all device scripts.
+
+        CTX_LIST is comma-separated and the RUN_* flags are 1/0 regardless of
+        platform; each script parses these into its own types.
+        """
+        return (
+            text.replace("{EVAL_CTX}", str(max(context_lengths)))
+            .replace("{EVAL_N_GEN}", str(_EVAL_N_GEN))
+            .replace("{EVAL_TIMEOUT_S}", str(_EVAL_TIMEOUT_S))
+            .replace("{EVAL_SLEEP_S}", str(_EVAL_SLEEP_S))
+            .replace("{CTX_LIST}", ",".join(str(c) for c in context_lengths))
+            .replace("{RUN_PERF}", "1" if run_perf else "0")
+            .replace("{RUN_EVAL}", "1" if eval_prompts else "0")
+        )
 
     @staticmethod
     def _rewrite_matrix_for_qairt_bundles(
@@ -121,10 +196,11 @@ class GenieXBenchAndroidArtifactHandler(GenieXBenchArtifactHandler):
         plugin: str,
         qairt_bundles: dict[str, str] | None,
         geniex_version: str | None,
+        eval_prompts: list[str] | None,
+        run_perf: bool,
     ) -> str:
         ds_dir = os.path.join(curr_dirname, "device_scripts")
         pytest_dir = os.path.join(ds_dir, "geniex_pytest")
-        ctx_list_str = ",".join(str(c) for c in context_lengths)
 
         if plugin == "qairt" and qairt_bundles:
             matrix_rows = self._rewrite_matrix_for_qairt_bundles(
@@ -143,11 +219,13 @@ class GenieXBenchAndroidArtifactHandler(GenieXBenchArtifactHandler):
             with open(src, encoding="utf-8") as f:
                 content = f.read()
             if fn.endswith(".py"):
-                content = (
-                    content.replace("{CTX_LIST}", ctx_list_str)
-                    .replace("{ANDROID_BENCH_URL}", bench_url)
+                content = self._apply_common_replacements(
+                    content.replace("{ANDROID_BENCH_URL}", bench_url)
                     .replace("{PLUGIN}", plugin)
-                    .replace("{N_GEN}", str(_N_GEN))
+                    .replace("{N_GEN}", str(_N_GEN)),
+                    context_lengths,
+                    run_perf,
+                    eval_prompts,
                 )
             out_path = (
                 os.path.join(dest_dir, fn)
@@ -166,6 +244,9 @@ class GenieXBenchAndroidArtifactHandler(GenieXBenchArtifactHandler):
 
         if plugin == "qairt" and qairt_bundles:
             self._stage_qairt_bundles(dest_dir, qairt_bundles)
+
+        if eval_prompts:
+            self._stage_eval_prompts(dest_dir, eval_prompts)
 
         zip_path = os.path.join(os.path.dirname(dest_dir), "geniex_bench_test.zip")
         create_zip(zip_path, dest_dir)
@@ -199,6 +280,8 @@ class GenieXBenchLinuxArtifactHandler(GenieXBenchArtifactHandler):
         plugin: str,
         qairt_bundles: dict[str, str] | None,
         geniex_version: str | None,
+        eval_prompts: list[str] | None,
+        run_perf: bool,
     ) -> str:
         ds_dir = os.path.join(curr_dirname, "device_scripts")
         sh_src = os.path.join(ds_dir, "run_geniex_bench_linux.sh")
@@ -210,18 +293,20 @@ class GenieXBenchLinuxArtifactHandler(GenieXBenchArtifactHandler):
 
         with open(sh_src, encoding="utf-8") as f:
             script = f.read()
-        script = (
+        script = self._apply_common_replacements(
             script.replace(
                 "{LINUX_BENCH_URL}",
                 _bench_url("linux-arm64", "tar.gz", geniex_version),
             )
             .replace("{CHIPSET}", chipset)
             .replace("{MODELS}", "\n".join(matrix_rows))
-            .replace("{CTX_LIST}", " ".join(str(c) for c in context_lengths))
             .replace(
                 "{BENCH_SIZE_FLAGS}",
                 self._bench_size_flags(plugin, qairt_bundles),
-            )
+            ),
+            context_lengths,
+            run_perf,
+            eval_prompts,
         )
         sh_dest = os.path.join(dest_dir, "run_geniex_bench_linux.sh")
         with open(sh_dest, "w", encoding="utf-8") as f:
@@ -230,6 +315,9 @@ class GenieXBenchLinuxArtifactHandler(GenieXBenchArtifactHandler):
 
         if plugin == "qairt" and qairt_bundles:
             self._stage_qairt_bundles(dest_dir, qairt_bundles)
+
+        if eval_prompts:
+            self._stage_eval_prompts(dest_dir, eval_prompts)
 
         zip_path = os.path.join(os.path.dirname(dest_dir), "geniex_bench_test.zip")
         create_zip(zip_path, dest_dir)
@@ -263,6 +351,8 @@ class GenieXBenchWindowsArtifactHandler(GenieXBenchArtifactHandler):
         plugin: str,
         qairt_bundles: dict[str, str] | None,
         geniex_version: str | None,
+        eval_prompts: list[str] | None,
+        run_perf: bool,
     ) -> str:
         ds_dir = os.path.join(curr_dirname, "device_scripts")
         ps1_src = os.path.join(ds_dir, "run_geniex_bench_windows.ps1")
@@ -274,18 +364,20 @@ class GenieXBenchWindowsArtifactHandler(GenieXBenchArtifactHandler):
 
         with open(ps1_src, encoding="utf-8") as f:
             script = f.read()
-        script = (
+        script = self._apply_common_replacements(
             script.replace(
                 "{WINDOWS_BENCH_URL}",
                 _bench_url("windows-arm64", "zip", geniex_version),
             )
             .replace("{CHIPSET}", chipset)
             .replace("{MODELS}", "\n".join(matrix_rows))
-            .replace("{CTX_LIST}", ",".join(str(c) for c in context_lengths))
             .replace(
                 "{BENCH_SIZE_FLAGS_ARGS}",
                 self._bench_size_flags_args(plugin, qairt_bundles),
-            )
+            ),
+            context_lengths,
+            run_perf,
+            eval_prompts,
         )
         with open(
             os.path.join(dest_dir, "run_geniex_bench_windows.ps1"),
@@ -296,6 +388,9 @@ class GenieXBenchWindowsArtifactHandler(GenieXBenchArtifactHandler):
 
         if plugin == "qairt" and qairt_bundles:
             self._stage_qairt_bundles(dest_dir, qairt_bundles)
+
+        if eval_prompts:
+            self._stage_eval_prompts(dest_dir, eval_prompts)
 
         zip_path = os.path.join(os.path.dirname(dest_dir), "geniex_bench_test.zip")
         create_zip(zip_path, dest_dir)
@@ -328,6 +423,8 @@ class GenieXBenchQDCJobs(QDCJobs):
         context_lengths: list[int] = DEFAULT_CONTEXT_LENGTHS,
         qairt_bundles: dict[str, str] | None = None,
         geniex_version: str | None = None,
+        eval_prompts: list[str] | None = None,
+        run_perf: bool = True,
     ) -> tuple[list[str], str | None]:
         curr_dirname = os.path.dirname(os.path.abspath(__file__))
         handler = self._get_artifact_handler(qdc_device)
@@ -341,6 +438,8 @@ class GenieXBenchQDCJobs(QDCJobs):
                 plugin,
                 qairt_bundles,
                 geniex_version,
+                eval_prompts,
+                run_perf,
             )
             artifact = self.upload_file(zip_path, ArtifactType.TESTSCRIPT)
         return [artifact], handler.entry_script
@@ -358,8 +457,8 @@ class GenieXBenchQDCJobs(QDCJobs):
                 os.makedirs(os.path.dirname(target), exist_ok=True)
                 self.download_job_log_files(job_log.filename, target)
                 try:
-                    shutil.unpack_archive(target, tmpdir, "zip")
-                except shutil.ReadError:
+                    _safe_extract_zip(target, tmpdir)
+                except zipfile.BadZipFile:
                     continue
 
             for root, _, files in os.walk(tmpdir):
@@ -430,6 +529,188 @@ class GenieXBenchQDCJobs(QDCJobs):
             gen_tokens=int((agg.get("gen_tokens") or {}).get("median") or 0),
         )
 
+    def compute_eval_results(
+        self,
+        job_log_files: list,
+        prompts: list[str],
+    ) -> list[dict]:
+        """Parse ``geniex_eval_outputs.txt`` into [{idx, prompt, output}].
+
+        The device scripts run ``geniex-bench --accuracy`` once per prompt and
+        append each invocation's stdout to a single ``geniex_eval_outputs.txt``,
+        with ``===EVAL_IDX_NNN===`` markers separating prompts.
+        """
+        outputs: dict[int, str] = {}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for job_log in job_log_files:
+                if "geniex_eval_outputs" not in job_log.filename:
+                    continue
+                target = os.path.join(tmpdir, "logs", f"{job_log.filename}.zip")
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                self.download_job_log_files(job_log.filename, target)
+                try:
+                    _safe_extract_zip(target, tmpdir)
+                except zipfile.BadZipFile:
+                    continue
+
+            for root, _, files in os.walk(tmpdir):
+                for fn in files:
+                    if "geniex_eval_outputs" not in fn or fn.endswith(".zip"):
+                        continue
+                    with open(
+                        os.path.join(root, fn), encoding="utf-8", errors="replace"
+                    ) as f:
+                        outputs.update(_parse_eval_outputs(f.read()))
+
+        return [
+            {
+                "idx": idx,
+                "prompt": prompts[idx] if idx < len(prompts) else "",
+                "output": _extract_model_output(outputs.get(idx, "")),
+            }
+            for idx in sorted(outputs.keys())
+        ]
+
+
+def _parse_eval_outputs(content: str) -> dict[int, str]:
+    """Split ``geniex_eval_outputs.txt`` into a ``{idx: raw_stdout}`` map.
+
+    Format: ``===EVAL_IDX_NNN===`` followed by that prompt's raw geniex-bench
+    stdout, up to the next marker.
+    """
+    outputs: dict[int, str] = {}
+    parts = re.split(r"===EVAL_IDX_(\d+)===\n?", content)
+    for i in range(1, len(parts) - 1, 2):
+        outputs[int(parts[i])] = parts[i + 1].strip()
+    return outputs
+
+
+def _extract_model_output(raw_output: str) -> str:
+    """Extract the generated text from one ``geniex-bench --accuracy`` stdout.
+
+    ``--accuracy`` prints each generated line prefixed with ``[gen ] `` and a
+    final ``[ok  ] ...`` perf-summary line. We keep only the ``[gen ]`` lines
+    (stripping the prefix) and join them; everything else (the ``[ok  ]``
+    summary, stray log lines) is dropped.
+    """
+    gen_prefix = "[gen ] "
+    lines = [
+        line[len(gen_prefix) :]
+        for line in raw_output.splitlines()
+        if line.startswith(gen_prefix)
+    ]
+    return "\n".join(lines).strip()
+
+
+def save_eval_results_json(results: list[dict], output_path: str) -> None:
+    """Save evaluation results to a JSON file, sorted by idx."""
+    if not results:
+        print("No results to save.")
+        return
+
+    results.sort(key=lambda r: r.get("idx", 0))
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+
+    print(f"Results saved to: {output_path}")
+
+
+def save_eval_metadata_json(
+    model_id: str,
+    chipset: str,
+    precision: str,
+    output_path: str,
+    path: ScorecardProfilePath,
+    dataset_name: str = "prompts",
+) -> None:
+    """Save a sidecar identifying which (model, chipset, precision, path, dataset) an eval JSON belongs to.
+
+    The grader output (``*_eval_grade.json``) carries no model/chipset/precision,
+    and the eval filename cannot be parsed unambiguously (model IDs and chipset
+    slugs both contain delimiters). collect_llm_accuracy_csv reads this sidecar
+    to recover the identity, and skips any grade file that lacks it. ``path`` is
+    the scorecard runtime the accuracy row is written under.
+    """
+    metadata = {
+        "model_id": model_id,
+        "chipset": chipset,
+        "precision": precision,
+        "path": path.value,
+        "dataset_name": dataset_name,
+    }
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2)
+
+    print(f"Eval metadata saved to: {output_path}")
+
+
+def load_default_eval_prompts() -> list[str]:
+    """Load the built-in 100-prompt accuracy set (shared with genie)."""
+    with open(DEFAULT_EVAL_PROMPTS_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _apply_chat_template(prompts: list[str], tokenizer_source: str) -> list[str]:
+    """Wrap each prompt in the model's chat template so --prompt-file gets a real turn.
+
+    geniex-bench feeds --prompt-file verbatim (no template), so the turn is
+    applied host-side. Thinking is disabled to match the genie side.
+    """
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_source)
+    templated: list[str] = []
+    for prompt in prompts:
+        messages = [
+            {"role": "system", "content": DEFAULT_LLM_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ]
+        # Templates fail many ways on a system role (Gemma's raise_exception(),
+        # ValueError on unsupported roles); fall back to a user-only turn.
+        try:
+            formatted = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False,
+            )
+        except Exception:
+            messages = [{"role": "user", "content": prompt}]
+            formatted = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False,
+            )
+        templated.append(formatted)
+    return templated
+
+
+def _resolve_tokenizer_source(
+    plugin: str, model_rows: list[tuple[str, str]], model_id: str | None
+) -> str:
+    """Where to load the chat template from.
+
+    Prefers ``HF_REPO_NAME`` from the model module: bundle-shipped tokenizers
+    can carry newer chat_template formats (list-of-dicts) that older
+    transformers versions mishandle with "'list' object has no attribute
+    'keys'". The HF repo tokenizer is what apply_chat_template is exercised
+    against upstream. Falls back to the local genie bundle for qairt when no
+    HF repo is available.
+    """
+    hf_repo: str | None = None
+    if model_id:
+        module = importlib.import_module(f"qai_hub_models.models.{model_id}")
+        hf_repo = getattr(module, "HF_REPO_NAME", None)
+    if hf_repo:
+        return hf_repo
+    if plugin == "qairt":
+        return model_rows[0][1]
+    raise ValueError(
+        f"{model_id or '<unknown>'} has no HF_REPO_NAME; cannot resolve a "
+        "chat template for llama_cpp eval prompts."
+    )
+
 
 def _hf_repo(model_url: str) -> str:
     if "huggingface.co/" not in model_url:
@@ -471,12 +752,20 @@ def submit_geniex_bench_only(
     job_name: str = "geniex-bench",
     geniex_version: str | None = None,
     llamacpp_quant: str | None = None,
+    eval_prompts: list[str] | None = None,
+    model_id: str | None = None,
+    run_perf: bool = True,
 ) -> tuple[str, list[str], dict[str, str]]:
     """Upload artifacts and submit a geniex-bench job, returning the id.
 
     Companion to ``collect_geniex_bench_result``. Also returns the
     computed ``matrix_rows`` and ``qairt_bundles`` so the caller can
     persist them for a later resubmit.
+
+    eval_prompts set => accuracy collection: chat-templated host-side and
+    staged into the bundle for one ``geniex-bench --accuracy`` pass. model_id
+    resolves the llama_cpp chat template. run_perf=False submits an eval-only
+    job (no TPS/TTFT sweep).
     """
     if plugin == "llama_cpp" and not llamacpp_quant:
         raise ValueError("llamacpp_quant is required when plugin='llama_cpp'.")
@@ -485,6 +774,19 @@ def submit_geniex_bench_only(
     matrix_rows, qairt_bundles = _build_matrix_rows(
         model_rows, plugin, device_alias, llamacpp_quant
     )
+
+    # Eval prep is additive to perf: on failure, drop eval to save the perf
+    # data, but let an eval-only run (run_perf=False) raise.
+    templated_prompts: list[str] | None = None
+    if eval_prompts:
+        try:
+            templated_prompts = _apply_chat_template(
+                eval_prompts, _resolve_tokenizer_source(plugin, model_rows, model_id)
+            )
+        except Exception as e:
+            if not run_perf:
+                raise
+            print(f"WARNING: eval prep failed ({e}); running perf only.")
 
     geniex_job = GenieXBenchQDCJobs(
         api_key=api_token,
@@ -499,6 +801,8 @@ def submit_geniex_bench_only(
         context_lengths=context_lengths,
         qairt_bundles=qairt_bundles or None,
         geniex_version=geniex_version,
+        eval_prompts=templated_prompts,
+        run_perf=run_perf,
     )
 
     job_id = geniex_job.submit_automated_job(
@@ -519,12 +823,16 @@ def collect_geniex_bench_result(
     hub_device_name: str,
     job_id: str,
     save_results_dir: str | None = None,
-) -> tuple[list[GenieXBenchMetrics], JobOutcome, str | None]:
+    eval_prompts: list[str] | None = None,
+    run_perf: bool = True,
+) -> tuple[list[GenieXBenchMetrics], list[dict], JobOutcome, str | None]:
     """Poll a submitted geniex-bench job and download+parse logs on success.
 
-    Returns ``(metrics, outcome, reason)``. ``metrics`` is empty unless
-    ``outcome`` is SUCCESS; ``reason`` carries the failure description on
-    a non-SUCCESS outcome.
+    Returns ``(metrics, eval_results, outcome, reason)``. ``metrics`` and
+    ``eval_results`` are empty unless ``outcome`` is SUCCESS; ``reason``
+    carries the failure description on a non-SUCCESS outcome. eval_prompts
+    is only consulted on success to attach the human-readable prompt text
+    to each parsed output (run_perf=False yields eval-only results).
     """
     geniex_job = GenieXBenchQDCJobs(
         api_key=api_token,
@@ -546,7 +854,7 @@ def collect_geniex_bench_result(
             else JobOutcome.RETRYABLE_UNSUCCESSFUL
         )
         print(f"[result={job_result}] {reason}")
-        return [], outcome, reason
+        return [], [], outcome, reason
 
     geniex_job.log_upload_status(job_id)
     # The file listing lags log-upload-status on the QDC backend, so wait
@@ -559,9 +867,18 @@ def collect_geniex_bench_result(
             f"'{job_result}' but produced no retrievable log files"
         )
         print(f"[empty logs] {reason}")
-        return [], JobOutcome.RETRYABLE_EMPTY_LOGS, reason
+        return [], [], JobOutcome.RETRYABLE_EMPTY_LOGS, reason
 
-    metrics = geniex_job.compute_metrics(
-        job_log_files, save_results_dir=save_results_dir
+    metrics = (
+        geniex_job.compute_metrics(job_log_files, save_results_dir=save_results_dir)
+        if run_perf
+        else []
     )
-    return metrics, JobOutcome.SUCCESS, None
+    # eval_prompts holds the raw questions so compute_eval_results labels each
+    # output with the human-readable prompt (not the templated form).
+    eval_results = (
+        geniex_job.compute_eval_results(job_log_files, eval_prompts)
+        if eval_prompts
+        else []
+    )
+    return metrics, eval_results, JobOutcome.SUCCESS, None

@@ -32,7 +32,8 @@ for the full list of commands and filters.
 Install the package via pip:
 ```bash
 # NOTE: 3.10 <= PYTHON_VERSION < 3.13 is supported.
-pip install "qai-hub-models[sam3]" git+https://github.com/facebookresearch/sam3.git@f66a2514dff3c032534fe236640c1e7c0f5c7677
+pip install "qai-hub-models[sam3]"
+pip install git+https://github.com/facebookresearch/sam3.git@f66a2514dff3c032534fe236640c1e7c0f5c7677
 ```
 
 ### 2. Configure Qualcomm® AI Hub Workbench

@@ -3,10 +3,7 @@ id: mobilesam
 status: published
 headline: 'Faster Segment Anything: Towards lightweight SAM for mobile applications.'
 domain: Computer Vision
-description: Transformer based encoder-decoder where prompts specify what to segment
-  in an image thereby allowing segmentation without the need for additional training.
-  The image encoder generates embeddings and the lightweight decoder operates on the
-  embeddings for point and mask based image segmentation.
+description: Transformer based encoder-decoder where prompts specify what to segment in an image thereby allowing segmentation without the need for additional training. The image encoder generates embeddings and the lightweight decoder operates on the embeddings for point and mask based image segmentation.
 use_case: Semantic Segmentation
 tags:
 - foundation
@@ -35,4 +32,7 @@ source_repo: https://github.com/facebookresearch/segment-anything
 license: https://github.com/facebookresearch/segment-anything/blob/main/LICENSE
 has_on_target_demo: true
 is_collection_model: true
-pip_install_flags: git+https://github.com/ChaoningZhang/MobileSAM@34bbbfd --use-pep517
+templates:
+- sam
+post_pip_install_commands:
+- pip install git+https://github.com/ChaoningZhang/MobileSAM@34bbbfd --use-pep517

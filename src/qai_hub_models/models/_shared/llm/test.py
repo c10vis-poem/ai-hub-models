@@ -1090,7 +1090,11 @@ def collect_llm_perf_job(
         base = f"{model_id}_{device.chipset}_{precision}_eval"
         save_eval_results_json(eval_results, f"{base}.json")
         save_eval_metadata_json(
-            model_id, device.chipset, str(precision), f"{base}.meta.json"
+            model_id,
+            device.chipset,
+            str(precision),
+            f"{base}.meta.json",
+            path=ScorecardProfilePath.GENIE,
         )
 
     return tps, ttft, prefill_tps

@@ -1,13 +1,9 @@
 name: OpenAI-Clip
 id: openai_clip
 status: published
-headline: Multi-modal foundational model for vision and language tasks like image/text
-  similarity and for zero-shot image classification.
+headline: Multi-modal foundational model for vision and language tasks like image/text similarity and for zero-shot image classification.
 domain: Multimodal
-description: Contrastive Language-Image Pre-Training (CLIP) uses a ViT like transformer
-  to get visual features and a causal language model to get the text features. Both
-  the text and visual features can then be used for a variety of zero-shot learning
-  tasks.
+description: Contrastive Language-Image Pre-Training (CLIP) uses a ViT like transformer to get visual features and a causal language model to get the text features. Both the text and visual features can then be used for a variety of zero-shot learning tasks.
 use_case: Image Classification
 tags:
 - foundation
@@ -33,4 +29,5 @@ research_paper: https://arxiv.org/abs/2103.00020
 research_paper_title: Learning Transferable Visual Models From Natural Language Supervision
 source_repo: https://github.com/openai/CLIP/
 license: https://github.com/openai/CLIP/blob/main/LICENSE
-pip_install_flags: git+https://github.com/openai/CLIP.git@ded190a --use-pep517
+post_pip_install_commands:
+- pip install git+https://github.com/openai/CLIP.git@ded190a --use-pep517

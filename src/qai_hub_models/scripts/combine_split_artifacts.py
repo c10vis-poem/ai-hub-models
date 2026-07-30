@@ -94,7 +94,6 @@ def combine_split_artifacts(
             num_entries = len(combined_data.get("models", combined_data))
             print(f"Combined {yaml_file}: {num_entries} entries")
 
-    # Merge CSV files by concatenating rows
     for csv_file in MERGE_CSV_FILES:
         header = None
         rows: list[str] = []

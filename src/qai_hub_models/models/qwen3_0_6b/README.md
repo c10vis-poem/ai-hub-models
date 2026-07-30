@@ -22,7 +22,7 @@ qai-hub-models perf Qwen3-0.6B
 qai-hub-models numerics Qwen3-0.6B
 
 # Download a ready-to-deploy asset
-qai-hub-models fetch Qwen3-0.6B --runtime geniex_llamacpp --precision q4_0
+qai-hub-models fetch Qwen3-0.6B --runtime qnn_context_binary --precision w4a16
 ```
 See the [CLI README](../../../../cli/README.md)
 for the full list of commands and filters.
@@ -31,6 +31,75 @@ for the full list of commands and filters.
 
 Follow the [GenieX quickstart](https://geniex.aihub.qualcomm.com/en/get-started/quickstart) to install GenieX and deploy the model on a target device.
 
+See the [LLM-on-Genie](https://github.com/qualcomm/ai-hub-apps/tree/main/tutorials/llm_on_genie) tutorial to run with the Genie runtime. Note: Genie support will be deprecated soon.
+
+
+## Export
+
+### Setup
+#### 1. Install the package
+Install the package via pip:
+```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
+pip install "qai-hub-models[qwen3-0-6b]"
+```
+For qwen3_0_6b, some additional functionality can be faster or is available
+only with a GPU on the host machine.
+
+- 🟢 Exporting the model for on-device deployment (GPU not required)
+- 🟡 Running the demo (GPU recommended for speed, but not required)
+- 🟡 Running evaluation (GPU recommended for speed, but not required)
+- 🔴 Quantizing the model (GPU required)
+
+If you are quantizing your own variant of qwen3_0_6b, a dedicated CUDA enabled
+GPU (40 GB VRAM for 3B models to 80 GB VRAM for 8B models) is recommended. A GPU
+can also increase the speed of evaluation and demo of your quantized model
+significantly but it not strictly required.
+
+Install the GPU package via pip:
+```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
+pip install "qai-hub-models[qwen3-0-6b]"
+pip install onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.35.0/aimet_onnx-2.35.0+cu126-cp310-abi3-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+```
+
+#### 2. Configure Qualcomm® AI Hub Workbench
+Sign-in to [Qualcomm® AI Hub Workbench](https://workbench.aihub.qualcomm.com/) with your
+Qualcomm® ID. Once signed in navigate to `Account -> Settings -> API Token`.
+
+With this API token, you can configure your client to run models on the cloud
+hosted devices.
+```bash
+qai-hub configure --api_token API_TOKEN
+```
+Navigate to [docs](https://workbench.aihub.qualcomm.com/docs/) for more information.
+
+### Verify with CLI Demo
+Run the following simple CLI demo to verify the model is working end to end:
+
+```bash
+python -m qai_hub_models.models.qwen3_0_6b.demo
+```
+More details on the CLI tool can be found with the `--help` option. See
+[demo.py](demo.py) for sample usage of the model including pre/post processing
+scripts. Please refer to our [general instructions on using
+models](../../../#getting-started) for more usage instructions.
+
+### Export the model artifact
+To run the model on Qualcomm® devices, you must export the model for use with an edge runtime such as
+TensorFlow Lite, ONNX Runtime, or Qualcomm AI Engine Direct.
+Export the pre-quantized model (published on AI Hub) for on-device deployment:
+```bash
+qai-hub-models export qwen3_0_6b --checkpoint DEFAULT_W4A16 --target-runtime qnn_context_binary --device "Samsung Galaxy S25 (Family)"
+```
+`--checkpoint` also accepts `DEFAULT` (the model's default precision) or any of `DEFAULT_W4A16`, `DEFAULT_Q4_0`.
+
+Optionally, quantize your own variant first and export the resulting checkpoint:
+```bash
+python -m qai_hub_models.models.qwen3_0_6b.quantize --precision w4a16 --output-dir ./quantized_checkpoint
+qai-hub-models export qwen3_0_6b --checkpoint ./quantized_checkpoint --target-runtime qnn_context_binary --device "Samsung Galaxy S25 (Family)"
+```
+Additional options are documented with the `--help` option.
 
 ## License
 * The license for the original implementation of Qwen3-0.6B can be found

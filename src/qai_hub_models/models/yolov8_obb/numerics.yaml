@@ -1,32 +1,32 @@
 metrics:
-- dataset_name: dota128
-  dataset_link: https://docs.ultralytics.com/datasets/obb/dota128/
+- dataset_link: https://docs.ultralytics.com/datasets/obb/dota128/
+  dataset_name: dota128
   dataset_split_description: training subset (128 samples)
-  metric_name: Mean Average Precision
-  metric_description: Mean Average Precision averaged over IOU thresholds 0.5 to 0.95 in 0.05 increments.
-  metric_unit: mAP@0.5:0.95
-  metric_range:
-    min: 0.0
-    max: 100.0
-  metric_enablement_threshold: 10.0
-  num_partial_samples: 128
-  partial_torch_metric: 73.8
   device_metric:
     Samsung Galaxy S25:
-      w8a16:
-        qnn_dlc:
-          partial_metric: 74.4
-        onnx:
-          partial_metric: 74.4
-      w8a8:
-        qnn_dlc:
-          partial_metric: 64.5
-        onnx:
-          partial_metric: 64.1
       float:
+        onnx:
+          partial_metric: 74.2
+        qnn_dlc:
+          partial_metric: 74.2
         tflite:
           partial_metric: 74.2
-        qnn_dlc:
-          partial_metric: 74.2
+      w8a16:
         onnx:
-          partial_metric: 74.2
+          partial_metric: 74.4
+        qnn_dlc:
+          partial_metric: 74.4
+      w8a8:
+        onnx:
+          partial_metric: 64.1
+        qnn_dlc:
+          partial_metric: 64.5
+  metric_description: Mean Average Precision averaged over IOU thresholds 0.5 to 0.95 in 0.05 increments.
+  metric_enablement_threshold: 10.0
+  metric_name: Mean Average Precision
+  metric_range:
+    max: 100.0
+    min: 0.0
+  metric_unit: mAP@0.5:0.95
+  num_partial_samples: 128
+  partial_torch_metric: 73.8

@@ -32,7 +32,8 @@ for the full list of commands and filters.
 Install the package via pip:
 ```bash
 # NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
-pip install "qai-hub-models[edgetam]" git+https://github.com/facebookresearch/EdgeTAM.git@a1209a454c9950d531498074a95ecf3a3ba02dfd
+pip install "qai-hub-models[edgetam]"
+pip install git+https://github.com/facebookresearch/EdgeTAM.git@a1209a454c9950d531498074a95ecf3a3ba02dfd
 ```
 
 ### 2. Configure Qualcomm® AI Hub Workbench

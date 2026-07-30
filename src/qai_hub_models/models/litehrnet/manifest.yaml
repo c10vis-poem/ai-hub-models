@@ -3,8 +3,7 @@ id: litehrnet
 status: published
 headline: Human pose estimation.
 domain: Computer Vision
-description: LiteHRNet is a machine learning model that detects human pose and returns
-  a location and confidence for each of 17 joints.
+description: LiteHRNet is a machine learning model that detects human pose and returns a location and confidence for each of 17 joints.
 use_case: Pose Estimation
 tags: []
 applicable_scenarios:
@@ -36,4 +35,9 @@ numerics_benchmark:
   unit: mAP
   source: AI Hub Models Reference Eval
 has_on_target_demo: true
-pip_pre_build_reqs: mmpose==1.2.0 --no-deps
+datasets:
+- cocowholebody
+templates:
+- mmpose
+pre_pip_install_commands:
+- pip install mmpose==1.2.0 --no-deps

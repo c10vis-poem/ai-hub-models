@@ -303,6 +303,10 @@ class Generator(GenerationMixin, torch.nn.Module):
     def _supports_cache_class(self) -> bool:
         return True
 
+    @contextlib.contextmanager
+    def _optimize_model_for_decode(self):
+        yield
+
     @property
     def device(self) -> torch.device:
         return self.model.device
@@ -456,7 +460,7 @@ class Generator(GenerationMixin, torch.nn.Module):
 
         input_tokens = input_ids if input_ids is not None else inputs_embeds
         input_tokens = input_tokens.to(
-            dtype=torch.int32 if input_ids is not None else torch.float32
+            dtype=torch.int32 if input_ids is not None else model.dtype
         )
 
         device = input_tokens.device

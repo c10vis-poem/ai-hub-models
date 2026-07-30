@@ -3,9 +3,7 @@ id: stereonet
 status: published
 headline: Real-time stereo matching network for disparity estimation.
 domain: Computer Vision
-description: StereoNet is an end-to-end deep architecture for real-time stereo matching
-  that produces high-quality, edge-preserved disparity maps from a rectified stereo
-  image pair.
+description: StereoNet is an end-to-end deep architecture for real-time stereo matching that produces high-quality, edge-preserved disparity maps from a rectified stereo image pair.
 use_case: Depth Estimation
 tags: []
 applicable_scenarios:
@@ -29,10 +27,10 @@ technical_details:
   Number of parameters: 1.94M
   Model size (float): 7.41 MB
 research_paper: https://arxiv.org/abs/1807.08865
-research_paper_title: 'StereoNet: Guided Hierarchical Refinement for Real-Time Edge-Aware
-  Depth Prediction'
+research_paper_title: 'StereoNet: Guided Hierarchical Refinement for Real-Time Edge-Aware Depth Prediction'
 source_repo: https://github.com/andrewlstewart/StereoNet_PyTorch
 license: https://github.com/andrewlstewart/StereoNet_PyTorch/blob/main/LICENSE
 license_type: mit
 has_on_target_demo: true
-pip_install_flags: git+https://github.com/andrewlstewart/StereoNet_PyTorch@3cb3a02
+post_pip_install_commands:
+- pip install git+https://github.com/andrewlstewart/StereoNet_PyTorch@3cb3a02

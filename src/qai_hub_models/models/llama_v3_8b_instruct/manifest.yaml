@@ -1,15 +1,9 @@
 name: Llama-v3-8B-Instruct
 id: llama_v3_8b_instruct
 status: published
-headline: State-of-the-art large language model useful on a variety of language understanding
-  and generation tasks.
+headline: State-of-the-art large language model useful on a variety of language understanding and generation tasks.
 domain: Generative AI
-description: Llama 3 is a family of LLMs. The model is quantized to w4a16 (4-bit weights
-  and 16-bit activations) and part of the model is quantized to w8a16 (8-bit weights
-  and 16-bit activations) making it suitable for on-device deployment. For Prompt
-  and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's
-  latency and average time per addition token is Llama-TokenGenerator-Quantized's
-  latency.
+description: Llama 3 is a family of LLMs. The model is quantized to w4a16 (4-bit weights and 16-bit activations) and part of the model is quantized to w8a16 (8-bit weights and 16-bit activations) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-Quantized's latency.
 use_case: Text Generation
 tags:
 - llm
@@ -30,11 +24,7 @@ has_animated_banner: true
 dataset: []
 technical_details:
   Supported languages: English.
-  TTFT: Time To First Token is the time it takes to generate the first response token.
-    This is expressed as a range because it varies based on the length of the prompt.
-    The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of
-    the prompt processor) and the upper bound is for a prompt using the full context
-    length (4096 tokens).
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (4096 tokens).
   Response Rate: Rate of response generation after the first response token.
 license_type: llama3
 research_paper: https://ai.meta.com/blog/meta-llama-3/
@@ -61,8 +51,13 @@ orchestrator_runtimes:
 - geniex_qairt
 - genie
 only_allow_orchestrator_runtimes: true
-pip_install_flags_gpu: onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl
-  -f https://download.pytorch.org/whl/torch_stable.html
 local_device_deployment: true
 has_multi_graph: true
 separate_quantize_script: true
+templates:
+- llama3
+- llm
+- lm_driver
+post_pip_install_commands:
+- command: pip install onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+  machine: gpu

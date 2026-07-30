@@ -312,7 +312,9 @@ class InternVL_VLM(VLM):
         return tuple(prepared.values())
 
     @classmethod
-    def get_sample_vision_inputs(cls, config, image_size=None):
+    def get_sample_vision_inputs(
+        cls, config, image_size=None, dtype: torch.dtype = torch.float32
+    ):
         """Dummy inputs for InternVL vision QuantSim (single tile)."""
         model_image_size = (
             getattr(config, "force_image_size", None) or config.vision_config.image_size
@@ -327,12 +329,13 @@ class InternVL_VLM(VLM):
                 )
         else:
             h = w = model_image_size
-        dummy_pixel_values = torch.zeros((1, 3, h, w), dtype=torch.float32)
+        dummy_pixel_values = torch.zeros((1, 3, h, w), dtype=dtype)
         return (dummy_pixel_values,)
 
     @staticmethod
     def get_backbone_dynamic_axes(
         layer_cache_descriptors: list[LayerCacheDescriptor] | None = None,
+        **kwargs,
     ) -> dict[str, dict[int, str]]:
         from GenAILab.qai_hub_lm.models.utils.layer_cache import (
             AttentionType,
@@ -359,8 +362,25 @@ class InternVL_VLM(VLM):
         return ("pixel_values",)
 
     @staticmethod
-    def get_visual_output_names() -> tuple[str, ...]:
+    def get_visual_output_names(**kwargs) -> tuple[str, ...]:
         return ("image_embeddings",)
+
+    @classmethod
+    def get_language_model(cls, model):
+        return model.language_model
+
+    @classmethod
+    def get_lm_head(cls, model):
+        return None
+
+    @classmethod
+    def build_vision_wrapper(cls, model):
+        return InternVLVisionWrapper(
+            model.vision_model,
+            model.mlp1,
+            downsample_ratio=model.downsample_ratio,
+            select_layer=model.select_layer,
+        )
 
     @staticmethod
     def get_generator_cls() -> type[VLM_Generator]:

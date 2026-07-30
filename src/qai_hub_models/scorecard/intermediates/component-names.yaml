@@ -1,160 +1,3 @@
-pi05:
-- vision_encoder
-- token_emb
-- action_expert
-- backbone
-mediapipe_pose:
-- pose_detector
-- pose_landmark_detector
-sixd_repnet:
-- face_detector
-- pose_estimator
-edgetam:
-- encoder
-- memory_encoder
-- video_decoder
-stable_diffusion_v2_1:
-- text_encoder
-- unet
-- vae
-whisper_small_quantized:
-- encoder
-- decoder
-opus_mt_es_en:
-- encoder
-- decoder
-opus_mt_zh_en:
-- encoder
-- decoder
-fomm:
-- detector
-- generator
-sam:
-- sam_encoder
-- sam_decoder
-track_anything:
-- encode_key_with_shrinkage
-- encode_value
-- encode_key_without_shrinkage
-- segment
-melotts_es:
-- encoder
-- flow
-- decoder
-- t5_encoder
-- t5_decoder
-bevfusion_det:
-- encoder_1
-- encoder_2
-- encoder_3
-- decoder
-pipertts_de:
-- encoder
-- sdp
-- flow
-- decoder
-- charsiu_encoder
-- charsiu_decoder
-whisper_large_v3_turbo:
-- encoder
-- decoder
-maskrcnn:
-- proposal_generator
-- roi_head
-mobilesam:
-- encoder
-- decoder
-trocr:
-- decoder
-- encoder
-melotts_zh:
-- encoder
-- flow
-- decoder
-- bert_wrapper
-opus_mt_en_es:
-- encoder
-- decoder
-pipertts_it:
-- encoder
-- sdp
-- flow
-- decoder
-- charsiu_encoder
-- charsiu_decoder
-melotts_en:
-- encoder
-- flow
-- decoder
-- bert_wrapper
-- t5_encoder
-- t5_decoder
-deepbox:
-- yolo_2d_detection
-- vgg_3d_detection
-controlnet_canny:
-- text_encoder
-- unet
-- vae
-- controlnet
-whisper_medium:
-- encoder
-- decoder
-whisper_tiny:
-- encoder
-- decoder
-easyocr:
-- detector
-- recognizer
-sam2:
-- encoder
-- decoder
-stable_diffusion_v1_5:
-- text_encoder
-- unet
-- vae
-pipertts_en:
-- encoder
-- sdp
-- flow
-- decoder
-- charsiu_encoder
-- charsiu_decoder
-distil_whisper:
-- encoder
-- decoder
-zipformer:
-- encoder
-- decoder
-- joiner
-detectron2_detection:
-- proposal_generator
-- roi_head
-mediapipe_face:
-- face_detector
-- face_landmark_detector
-mediapipe_hand_gesture:
-- palm_detector
-- hand_landmark_detector
-- canned_gesture_classifier
-opus_mt_en_zh:
-- encoder
-- decoder
-whisper_base:
-- encoder
-- decoder
-whisper_small:
-- encoder
-- decoder
-mediapipe_hand:
-- hand_detector
-- hand_landmark_detector
-falcon_v3_7b_instruct:
-- part1_of_5
-- part2_of_5
-- part3_of_5
-- part4_of_5
-- part5_of_5
 llama_v3_1_8b_instruct:
 - part1_of_5
 - part2_of_5
@@ -175,12 +18,6 @@ llama_v3_2_3b_instruct:
 - part1_of_3
 - part2_of_3
 - part3_of_3
-llama_v3_8b_instruct:
-- part1_of_5
-- part2_of_5
-- part3_of_5
-- part4_of_5
-- part5_of_5
 llama_v3_elyza_jp_8b:
 - part1_of_5
 - part2_of_5
@@ -200,23 +37,8 @@ qwen2_5_vl_7b_instruct:
 - part3_of_5
 - part4_of_5
 - part5_of_5
-qwen3_4b:
-- part1_of_4
-- part2_of_4
-- part3_of_4
-- part4_of_4
-llama_v3_2_3b_instruct_ssd:
-- part1_of_4
-- part2_of_4
-- part3_of_4
-- part4_of_4
 qwen3_vl_4b_instruct:
 - vision_encoder
-- part1_of_4
-- part2_of_4
-- part3_of_4
-- part4_of_4
-qwen3_4b_instruct_2507:
 - part1_of_4
 - part2_of_4
 - part3_of_4
@@ -227,6 +49,23 @@ qwen3_8b:
 - part3_of_5
 - part4_of_5
 - part5_of_5
+falcon_v3_7b_instruct:
+- part1_of_5
+- part2_of_5
+- part3_of_5
+- part4_of_5
+- part5_of_5
+llama_v3_8b_instruct:
+- part1_of_5
+- part2_of_5
+- part3_of_5
+- part4_of_5
+- part5_of_5
+qwen3_1_7b:
+- part1_of_4
+- part2_of_4
+- part3_of_4
+- part4_of_4
 qwen3_vl_8b_instruct:
 - vision_encoder
 - part1_of_6
@@ -235,14 +74,180 @@ qwen3_vl_8b_instruct:
 - part4_of_6
 - part5_of_6
 - part6_of_6
-qwen3_1_7b:
+llama_v3_2_3b_instruct_ssd:
 - part1_of_4
 - part2_of_4
 - part3_of_4
 - part4_of_4
+qwen3_0_6b:
+- part1_of_2
+- part2_of_2
+qwen3_4b:
+- part1_of_4
+- part2_of_4
+- part3_of_4
+- part4_of_4
+pi05:
+- vision_encoder
+- token_emb
+- action_expert
+- backbone
+melotts_en:
+- encoder
+- flow
+- decoder
+- bert_wrapper
+- t5_encoder
+- t5_decoder
+owlv2:
+- vision
+- text
+deepbox:
+- yolo_2d_detection
+- vgg_3d_detection
+detectron2_detection:
+- proposal_generator
+- roi_head
+whisper_small_quantized:
+- encoder
+- decoder
+opus_mt_es_en:
+- encoder
+- decoder
+opus_mt_zh_en:
+- encoder
+- decoder
+whisper_medium:
+- encoder
+- decoder
+whisper_small:
+- encoder
+- decoder
+distil_whisper:
+- encoder
+- decoder
+zipformer:
+- encoder
+- decoder
+- joiner
+bevdet:
+- encoder
+- pooler
+- decoder
+mediapipe_hand_gesture:
+- palm_detector
+- hand_landmark_detector
+- canned_gesture_classifier
 sam3:
 - vision_backbone
 - head
+easyocr:
+- detector
+- recognizer
+stable_diffusion_v2_1:
+- text_encoder
+- unet
+- vae
+bevfusion_det:
+- encoder_1
+- encoder_2
+- encoder_3
+- decoder
+pipertts_en:
+- encoder
+- sdp
+- flow
+- decoder
+- charsiu_encoder
+- charsiu_decoder
+whisper_tiny:
+- encoder
+- decoder
+sixd_repnet:
+- face_detector
+- pose_estimator
+track_anything:
+- encode_key_with_shrinkage
+- encode_value
+- encode_key_without_shrinkage
+- segment
+trocr:
+- decoder
+- encoder
+mediapipe_pose:
+- pose_detector
+- pose_landmark_detector
+controlnet_canny:
+- text_encoder
+- unet
+- vae
+- controlnet
+stable_diffusion_v1_5:
+- text_encoder
+- unet
+- vae
+opus_mt_en_zh:
+- encoder
+- decoder
+mobilesam:
+- encoder
+- decoder
+sam:
+- sam_encoder
+- sam_decoder
+melotts_es:
+- encoder
+- flow
+- decoder
+- t5_encoder
+- t5_decoder
+melotts_zh:
+- encoder
+- flow
+- decoder
+- bert_wrapper
+mediapipe_face:
+- face_detector
+- face_landmark_detector
+sam2:
+- encoder
+- decoder
 yolo_world:
 - detector
 - text_encoder
+opus_mt_en_es:
+- encoder
+- decoder
+whisper_large_v3_turbo:
+- encoder
+- decoder
+maskrcnn:
+- proposal_generator
+- roi_head
+edgetam:
+- encoder
+- memory_encoder
+- video_decoder
+pipertts_de:
+- encoder
+- sdp
+- flow
+- decoder
+- charsiu_encoder
+- charsiu_decoder
+whisper_base:
+- encoder
+- decoder
+fomm:
+- detector
+- generator
+mediapipe_hand:
+- hand_detector
+- hand_landmark_detector
+pipertts_it:
+- encoder
+- sdp
+- flow
+- decoder
+- charsiu_encoder
+- charsiu_decoder

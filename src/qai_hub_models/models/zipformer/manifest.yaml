@@ -1,18 +1,9 @@
 name: Zipformer
 id: zipformer
 status: published
-headline: Transformer-based automatic speech recognition (ASR) model for English and
-  Chinese language.
+headline: Transformer-based automatic speech recognition (ASR) model for English and Chinese language.
 domain: Audio
-description: Zipformer streaming ASR (Automatic Speech Recognition) model is a state-of-the-art
-  system designed for transcribing spoken language into written text streamingly.
-  This model is based on the transformer architecture and has been optimized for edge
-  inference by replacing linear layers with convolutional (conv) layers. It exhibits
-  robust performance in realistic, noisy environments, making it highly reliable for
-  real-world applications. Specifically, it excels in long-form transcription, capable
-  of accurately transcribing audios. Time to the first token is the encoder's latency,
-  while time to each additional token is joiner's latency, where we assume a max decoded
-  length specified below.
+description: Zipformer streaming ASR (Automatic Speech Recognition) model is a state-of-the-art system designed for transcribing spoken language into written text streamingly. This model is based on the transformer architecture and has been optimized for edge inference by replacing linear layers with convolutional (conv) layers. It exhibits robust performance in realistic, noisy environments, making it highly reliable for real-world applications. Specifically, it excels in long-form transcription, capable of accurately transcribing audios. Time to the first token is the encoder's latency, while time to each additional token is joiner's latency, where we assume a max decoded length specified below.
 use_case: Speech Recognition
 tags:
 - foundation
@@ -61,5 +52,9 @@ disabled_paths:
       scorecard_failure: 'Failing jobs: j576md4qg'
 is_collection_model: true
 requires_aot_prepare: true
-pip_pre_build_reqs: torch==2.9.0+cpu -f https://download.pytorch.org/whl/torch/
-pip_install_flags: k2==1.24.4.dev20251029+cpu.torch2.9.0 -f https://k2-fsa.github.io/k2/cpu.html
+datasets:
+- common_voice
+pre_pip_install_commands:
+- pip install torch==2.9.0+cpu -f https://download.pytorch.org/whl/torch/
+post_pip_install_commands:
+- pip install k2==1.24.4.dev20251029+cpu.torch2.9.0 -f https://k2-fsa.github.io/k2/cpu.html

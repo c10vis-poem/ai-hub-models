@@ -110,6 +110,92 @@ def get_manifest_str_field(model_name: str, field_name: str) -> str | None:
     return field
 
 
+@functools.cache
+def get_pip_install_commands(
+    model_name: str, field_name: str
+) -> tuple[tuple[str, str], ...]:
+    """Read a top-level list of PipCommand entries out of manifest.yaml.
+
+    Returns a tuple of ``(command, machine)`` pairs. ``machine`` defaults to
+    ``"any"`` when unset. Returns an empty tuple if the field is absent.
+
+    Written primitively (no yaml dep) to match the other manifest helpers in
+    this module. Understands both shapes that manifests emit:
+
+        <field_name>:
+        - pip install foo             # bare string, machine="any"
+        - command: pip install bar    # mapping form, needed to set machine
+          machine: gpu
+
+    Values may be plain, single-quoted, or double-quoted. Nothing more.
+    """
+    if field_name not in {"pre_pip_install_commands", "post_pip_install_commands"}:
+        raise ValueError(f"Unsupported pip-commands field: {field_name}")
+
+    yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "manifest.yaml"
+    if not yaml_path.exists():
+        return ()
+
+    with open(yaml_path) as f:
+        lines = f.readlines()
+
+    entries: list[tuple[str, str]] = []
+    in_section = False
+    current_command: str | None = None
+    current_machine: str = "any"
+
+    def _flush() -> None:
+        nonlocal current_command, current_machine
+        if current_command is not None:
+            entries.append((current_command, current_machine))
+        current_command = None
+        current_machine = "any"
+
+    def _unquote(v: str) -> str:
+        v = v.strip()
+        if len(v) >= 2 and (
+            (v[0] == '"' and v[-1] == '"') or (v[0] == "'" and v[-1] == "'")
+        ):
+            return v[1:-1]
+        return v
+
+    prefix = f"{field_name}:"
+    for line in lines:
+        stripped_full = line.rstrip("\n")
+        if not in_section:
+            if stripped_full == prefix or stripped_full.startswith(prefix + " "):
+                in_section = True
+            continue
+
+        stripped = stripped_full.strip()
+        if not stripped:
+            continue
+
+        # A new list item is either "- command: ..." (mapping form),
+        # "- pip install ..." (bare string), or a continuation "machine: ..."
+        # (indented). Anything else at column 0 ends the section.
+        if stripped_full.startswith("- "):
+            _flush()
+            rest = stripped[2:].strip()
+            if rest.startswith("command:"):
+                current_command = _unquote(rest[len("command:") :].strip())
+            else:
+                current_command = _unquote(rest)
+        elif line[0].isspace() and stripped.startswith("machine:"):
+            current_machine = _unquote(stripped[len("machine:") :].strip())
+        elif line[0].isspace() and stripped.startswith("command:"):
+            # Unusual layout: "-" on its own line, "command:" on the next.
+            _flush()
+            current_command = _unquote(stripped[len("command:") :].strip())
+        else:
+            # A non-list, column-0 line means we've walked out of the section.
+            _flush()
+            break
+
+    _flush()
+    return tuple(entries)
+
+
 def is_quantized_llm_model(model_name: str) -> bool:
     quantize_script = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "quantize.py"
     return (

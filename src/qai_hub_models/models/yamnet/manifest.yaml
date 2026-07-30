@@ -3,9 +3,7 @@ id: yamnet
 status: published
 headline: Audio Event classification Model.
 domain: Audio
-description: An audio event classifier trained on the AudioSet dataset to predict
-  audio events from the AudioSet ontology employing the Mobilenet_v1 depthwise-separable
-  convolution architecture.
+description: An audio event classifier trained on the AudioSet dataset to predict audio events from the AudioSet ontology employing the Mobilenet_v1 depthwise-separable convolution architecture.
 use_case: Audio Classification
 tags:
 - real-time
@@ -27,8 +25,7 @@ technical_details:
   Model size (float): 14.2 MB
 license_type: mit
 research_paper: https://arxiv.org/abs/1704.04861
-research_paper_title: MobileNets Efficient Convolutional Neural Networks for Mobile
-  Vision Applications
+research_paper_title: MobileNets Efficient Convolutional Neural Networks for Mobile Vision Applications
 source_repo: https://github.com/w-hc/torch_audioset
 license: https://github.com/w-hc/torch_audioset/blob/master/LICENSE
 imsdk_supported: true
@@ -37,6 +34,6 @@ supported_precisions:
 - w8a16
 - w8a8
 has_on_target_demo: true
-pip_install_flags: git+https://github.com/w-hc/torch_audioset.git
-readme_install_system_deps: "#### Linux\n```bash\nsudo apt install ffmpeg\n```\n\n
-  #### Windows\n```\nwinget install ffmpeg\n```\n"
+readme_install_system_deps: "#### Linux\n```bash\nsudo apt install ffmpeg\n```\n\n #### Windows\n```\nwinget install ffmpeg\n```\n"
+post_pip_install_commands:
+- pip install git+https://github.com/w-hc/torch_audioset.git

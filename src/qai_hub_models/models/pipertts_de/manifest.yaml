@@ -46,9 +46,14 @@ requires_aot_prepare: true
 orchestrator_runtimes:
 - voice_ai
 only_allow_orchestrator_runtimes: true
-pip_pre_build_reqs: git+https://github.com/rhasspy/piper.git#subdirectory=src/python
-  --no-deps
 python_version_less_than: '3.12'
 python_version_less_than_reason: piper-phonemize is prebuilt on 3.11 and 3.10 only
-readme_install_system_deps: "#### Linux\n```bash\nsudo apt install libportaudio2\n\
-  ```\n"
+readme_install_system_deps: "#### Linux\n```bash\nsudo apt install libportaudio2\n```\n"
+datasets:
+- common_voice
+templates:
+- pipertts
+models:
+- whisper_large_v3_turbo
+pre_pip_install_commands:
+- pip install git+https://github.com/rhasspy/piper.git#subdirectory=src/python --no-deps

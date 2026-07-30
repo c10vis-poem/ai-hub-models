@@ -1,33 +1,31 @@
 precisions:
-  w8a8:
-    universal_assets:
-      tflite:
-        s3_key: pre_release_assets/gh_actions/27460081135/resnet18-tflite-w8a8.zip
-        tool_versions:
-          qairt: 2.45.0.260326154327
-          litert: 1.4.4
-      qnn_dlc:
-        s3_key: pre_release_assets/gh_actions/27460081135/resnet18-qnn_dlc-w8a8.zip
-        tool_versions:
-          qairt: 2.45.0.260326154327
-      onnx:
-        s3_key: pre_release_assets/gh_actions/27460081135/resnet18-onnx-w8a8.zip
-        tool_versions:
-          qairt: 2.45.0.260326154327
-          onnx_runtime: 1.25.0
   float:
     universal_assets:
-      tflite:
-        s3_key: pre_release_assets/gh_actions/27460081135/resnet18-tflite-float.zip
-        tool_versions:
-          qairt: 2.45.0.260326154327
-          litert: 1.4.4
-      qnn_dlc:
-        s3_key: pre_release_assets/gh_actions/27460081135/resnet18-qnn_dlc-float.zip
-        tool_versions:
-          qairt: 2.45.0.260326154327
       onnx:
-        s3_key: pre_release_assets/gh_actions/27460081135/resnet18-onnx-float.zip
+        s3_key: pre_release_assets/gh_actions/30148026651/resnet18-onnx-float.zip
+        tool_versions:
+          onnx_runtime: 1.27.1
+          qairt: 2.45.0.260326154327
+      qnn_dlc:
+        s3_key: pre_release_assets/gh_actions/30148026651/resnet18-qnn_dlc-float.zip
         tool_versions:
           qairt: 2.45.0.260326154327
-          onnx_runtime: 1.25.0
+      tflite:
+        s3_key: pre_release_assets/gh_actions/30148026651/resnet18-tflite-float.zip
+        tool_versions:
+          qairt: 2.45.0.260326154327
+  w8a8:
+    universal_assets:
+      onnx:
+        s3_key: pre_release_assets/gh_actions/30148026651/resnet18-onnx-w8a8.zip
+        tool_versions:
+          onnx_runtime: 1.27.1
+          qairt: 2.45.0.260326154327
+      qnn_dlc:
+        s3_key: pre_release_assets/gh_actions/30148026651/resnet18-qnn_dlc-w8a8.zip
+        tool_versions:
+          qairt: 2.45.0.260326154327
+      tflite:
+        s3_key: pre_release_assets/gh_actions/30148026651/resnet18-tflite-w8a8.zip
+        tool_versions:
+          qairt: 2.45.0.260326154327

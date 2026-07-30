@@ -59,7 +59,13 @@ def test_load_encodings_to_quantsim(checkpoint: str) -> None:
     Model.from_pretrained(checkpoint)
 
 
+# qwen3_1_7b is the qwen nightly canary: its SpinQuant R1 rotation makes it the
+# model that surfaces quantization regressions (e.g. SpinQuant being reapplied),
+# which R2+R3-only models like qwen3_0_6b tolerate silently. It runs the full
+# eval matrix + quantize/demo on nightly; qwen3_0_6b/qwen3_4b are weekly and keep
+# only one cheap W4A16 MMLU row on nightly.
 @pytest.mark.evaluate
+@pytest.mark.nightly
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
@@ -68,20 +74,14 @@ def test_load_encodings_to_quantsim(checkpoint: str) -> None:
     [
         # Validated recipe (SpinQuant R1+R3 -> AdaScale -> Calibration):
         # QT (w4a16): PPL 16.59, MMLU 56.65%, AutogradedPrompts 97.8%.
-        pytest.param("DEFAULT_W4A16", "wikitext", 16.59, 0, marks=pytest.mark.nightly),
+        ("DEFAULT_W4A16", "wikitext", 16.59, 0),
         ("DEFAULT_W4A16", "mmlu", 0.5665, 1000),
         # Prompt-generation + LLM-grader smoke test (5 samples). Always runs on
         # the FP PreSplit regardless of checkpoint, so both rows share a floor.
-        pytest.param("DEFAULT_W4A16", "prompts", 0.75, 5, marks=pytest.mark.nightly),
-        # FP (unquantized). Baselines re-aligned to observed values; the earlier
-        # numbers regressed (PPL 15.63 -> 18.5, MMLU 0.5996 -> 0.51), likely from
-        # the tokenizer/chat-template change in #4014.
-        # Tracked in qcom-ai-hub/tetracode#20453.
-        ("DEFAULT_UNQUANTIZED", "wikitext", 18.51, 0),
-        ("DEFAULT_UNQUANTIZED", "mmlu", 0.511, 1000),
-        pytest.param(
-            "DEFAULT_UNQUANTIZED", "prompts", 0.75, 5, marks=pytest.mark.nightly
-        ),
+        ("DEFAULT_W4A16", "prompts", 0.75, 5),
+        ("DEFAULT_UNQUANTIZED", "wikitext", 15.63, 0),
+        ("DEFAULT_UNQUANTIZED", "mmlu", 0.5996, 1000),
+        ("DEFAULT_UNQUANTIZED", "prompts", 0.75, 5),
     ],
 )
 def test_evaluate(
@@ -117,6 +117,10 @@ def test_evaluate(
     )
 
 
+# Nightly quantize canary. This is the model that surfaces SpinQuant issues:
+# it quantizes from scratch (DEFAULT_UNQUANTIZED) with R1+R3, so a bug like
+# SpinQuant being reapplied compounds R1's full-residual rotation and shows up
+# here, whereas qwen3_0_6b's R2+R3-only recipe would tolerate it silently.
 @pytest.mark.nightly
 @pytest.mark.demo
 @pytest.mark.skipif(
@@ -128,18 +132,20 @@ def test_quantize_and_demo(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
     Qwen3_1_7B_QuantizablePreSplit.release()
     FPSplitModelWrapper.release()
     QuantizedSplitModelWrapper.release()
+    # Quantize from scratch: start from the FP weights (DEFAULT_UNQUANTIZED), not
+    # the pre-quantized AIMET checkpoint that "DEFAULT" resolves to. SpinQuant
+    # isn't applied on its own, so pass the R1+R3 config explicitly -- without it
+    # the quantized model emits garbage instead of a usable response.
     checkpoint_path = test.setup_test_quantization(
         Qwen3_1_7B_QuantizablePreSplit,
         Qwen3_1_7B_PreSplit,
         str(tmp_path),
         precision=Precision.w4a16,
-        checkpoint="DEFAULT",
+        checkpoint="DEFAULT_UNQUANTIZED",
         use_seq_mse=False,
         use_ada_scale=True,
         ada_scale_num_samples=128,
         ada_scale_num_iterations=2048,
-        # Qwen3-1.7B's W4A16 recipe requires SpinQuant (R1+R3); without it the
-        # quantized model emits garbage instead of a usable response.
         spinquant_config={"enable_r1": True, "enable_r2": False, "enable_r3": True},
     )
     # Disable thinking mode: the 1.7B model otherwise loops in an unterminated
@@ -158,6 +164,7 @@ def test_quantize_and_demo(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
     QuantizedSplitModelWrapper.release()
 
 
+# Nightly demo coverage lives on this canary (see test_quantize_and_demo above).
 @pytest.mark.nightly
 @pytest.mark.demo
 @pytest.mark.skipif(

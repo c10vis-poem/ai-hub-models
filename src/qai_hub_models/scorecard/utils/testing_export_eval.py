@@ -18,6 +18,7 @@ from unittest import mock
 import numpy as np
 import qai_hub as hub
 import torch
+from filelock import FileLock
 from mypy_boto3_s3.service_resource import Bucket
 from typing_extensions import assert_never
 
@@ -1481,18 +1482,22 @@ def export_test_e2e(
 
         if upload_to_s3:
             assert s3_bucket is not None  # mypy
-            assets_cache = ScorecardAssetYaml.from_yaml(
-                ScorecardArtifact.RELEASE_ASSETS.path, create_empty_if_no_file=True
+            assets_path = ScorecardArtifact.RELEASE_ASSETS.path
+            chipset_key = (
+                device if scorecard_path.runtime.is_aot_compiled else cs_universal
             )
-            already_cached = (
-                assets_cache.get_asset(
-                    model_id,
-                    precision,
-                    device if scorecard_path.runtime.is_aot_compiled else cs_universal,
-                    scorecard_path,
+            # FileLock guards read-modify-write against concurrent xdist workers
+            # exporting different (precision, runtime) combos into the same yaml.
+            with FileLock(f"{assets_path}.lock"):
+                assets_cache = ScorecardAssetYaml.from_yaml(
+                    assets_path, create_empty_if_no_file=True
                 )
-                is not None
-            )
+                already_cached = (
+                    assets_cache.get_asset(
+                        model_id, precision, chipset_key, scorecard_path
+                    )
+                    is not None
+                )
             if not already_cached:
                 s3_key = str(S3ArtifactsDirEnvvar.get() / download_path.name)
                 s3_multipart_upload(
@@ -1500,16 +1505,20 @@ def export_test_e2e(
                     key=s3_key,
                     local_file_path=download_path,
                 )
-                assets_cache.add_asset(
-                    QAIHMModelReleaseAssets.AssetDetails(
-                        s3_key=s3_key, tool_versions=tool_versions
-                    ),
-                    model_id,
-                    precision,
-                    device if scorecard_path.runtime.is_aot_compiled else cs_universal,
-                    scorecard_path,
-                )
-                assets_cache.to_yaml(ScorecardArtifact.RELEASE_ASSETS.path)
+                with FileLock(f"{assets_path}.lock"):
+                    assets_cache = ScorecardAssetYaml.from_yaml(
+                        assets_path, create_empty_if_no_file=True
+                    )
+                    assets_cache.add_asset(
+                        QAIHMModelReleaseAssets.AssetDetails(
+                            s3_key=s3_key, tool_versions=tool_versions
+                        ),
+                        model_id,
+                        precision,
+                        chipset_key,
+                        scorecard_path,
+                    )
+                    assets_cache.to_yaml(assets_path)
 
         if export_error is not None:
             raise export_error

@@ -25,6 +25,9 @@ SUPPORTED_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {
         TargetRuntime.GENIEX_QAIRT,
         TargetRuntime.GENIE,
     ],
+    Precision.q4_0: [
+        TargetRuntime.GENIEX_LLAMACPP,
+    ],
 }
 
 

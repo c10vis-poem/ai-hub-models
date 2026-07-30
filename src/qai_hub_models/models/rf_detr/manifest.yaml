@@ -44,3 +44,5 @@ disabled_paths:
 outputs_to_skip_validation:
   '0': PSNR is not a meaningful metric for pixel-space bounding box coordinates
   '2': Boxes with low confidence disagree on class index between torch and on-device
+templates:
+- detr

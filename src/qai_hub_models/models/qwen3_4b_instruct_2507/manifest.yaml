@@ -1,13 +1,9 @@
 name: Qwen3-4B-Instruct-2507
 id: qwen3_4b_instruct_2507
 status: published
-headline: State-of-the-art large language model with instruct-only training, useful
-  on a variety of language understanding and generation tasks.
+headline: State-of-the-art large language model with instruct-only training, useful on a variety of language understanding and generation tasks.
 domain: Generative AI
-description: The Qwen3-4B-Instruct-2507 is a state-of-the-art multilingual instruct
-  language model with 4 billion parameters, excelling in language understanding, generation,
-  coding, and mathematics. Unlike the base Qwen3-4B, this variant has only instruct
-  training without thinking mode support.
+description: The Qwen3-4B-Instruct-2507 is a state-of-the-art multilingual instruct language model with 4 billion parameters, excelling in language understanding, generation, coding, and mathematics. Unlike the base Qwen3-4B, this variant has only instruct training without thinking mode support.
 use_case: Text Generation
 tags:
 - llm
@@ -28,14 +24,8 @@ has_animated_banner: true
 dataset: []
 technical_details:
   Supported languages: 100+ languages and dialects.
-  TTFT: Time To First Token is the time it takes to generate the first response token.
-    This is expressed as a range because it varies based on the length of the prompt.
-    The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of
-    the prompt processor) and the upper bound is for a prompt using the full context
-    length (4096 tokens).
-  Response Rate: Rate of response generation after the first response token. Measured
-    on a short prompt with a long response; may slow down when using longer context
-    lengths.
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (4096 tokens).
+  Response Rate: Rate of response generation after the first response token. Measured on a short prompt with a long response; may slow down when using longer context lengths.
 license_type: apache-2.0
 research_paper: https://arxiv.org/abs/2505.09388
 research_paper_title: Qwen3 Technical Report
@@ -67,8 +57,13 @@ orchestrator_runtimes:
 - geniex_llamacpp
 - genie
 only_allow_orchestrator_runtimes: true
-pip_install_flags_gpu: onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl
-  -f https://download.pytorch.org/whl/torch_stable.html
 local_device_deployment: true
 has_multi_graph: true
 separate_quantize_script: true
+templates:
+- llm
+- lm_driver
+- qwen3
+post_pip_install_commands:
+- command: pip install onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+  machine: gpu

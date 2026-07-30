@@ -85,13 +85,16 @@ LOG_LISTING_MAX_RETRIES = 5
 # HTTP status codes that the QDC SDK can surface transiently on status polling.
 # The SDK raises a bare Exception with the code embedded in the message (e.g.
 # "failed with status code 403 and message: Invalid Credentials"), so we match
-# on the message. 403s have been observed intermittently on otherwise-valid
-# credentials; 429/5xx are the usual rate-limit / server-side blips. 400 is
-# NOT included globally: it is a permanent client error for every other QDC
-# call (malformed job ID, bad params), and is only retryable for submit_job
-# (per-user pending-job cap rejection) — that callsite passes it explicitly
-# via ``extra_retryable_codes``.
-_RETRYABLE_STATUS_CODES = (403, 429, 500, 502, 503, 504)
+# on the message. 401/403 have been observed intermittently on otherwise-valid
+# credentials (e.g. a 401 on get_job_log_files minutes after the same client's
+# submit/status/result/log_upload_status calls all succeeded, on a job that ran
+# fine on-device — a transient token-refresh blip, not a real auth failure);
+# 429/5xx are the usual rate-limit / server-side blips. 400 is NOT included
+# globally: it is a permanent client error for every other QDC call (malformed
+# job ID, bad params), and is only retryable for submit_job (per-user
+# pending-job cap rejection) — that callsite passes it explicitly via
+# ``extra_retryable_codes``.
+_RETRYABLE_STATUS_CODES = (401, 403, 429, 500, 502, 503, 504)
 
 # Return type for the generic retry wrapper.
 CallableRetT = TypeVar("CallableRetT")

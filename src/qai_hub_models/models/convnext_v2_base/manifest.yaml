@@ -1,0 +1,56 @@
+name: ConvNextV2-Base
+id: convnext_v2_base
+status: unpublished
+status_reason: Staging model
+headline: Imagenet classifier and general purpose backbone.
+domain: Computer Vision
+description: ConvNextV2Base is a machine learning model that can classify images from the Imagenet dataset. It can also be used as a backbone in building more complex models for specific use cases.
+use_case: Image Classification
+tags:
+- backbone
+- bu-auto
+applicable_scenarios:
+- Medical Imaging
+- Anomaly Detection
+- Inventory Management
+related_models:
+- convnext_tiny
+- convnext_base
+- mobilenet_v2
+- densenet121
+- googlenet
+form_factors:
+- Phone
+- Tablet
+- IoT
+- XR
+has_static_banner: false
+has_animated_banner: false
+dataset:
+- imagenet-1k
+technical_details:
+  Model checkpoint: Imagenet
+  Input resolution: 224x224
+  Number of parameters: 88.7M
+  Model size (float): 339 MB
+  Model size (w8a16): 91.7 MB
+license_type: apache-2.0
+research_paper: https://arxiv.org/abs/2301.00808
+research_paper_title: 'ConvNeXt V2: Co-designing and Scaling ConvNets with Masked Autoencoders'
+source_repo: https://github.com/huggingface/transformers/blob/main/src/transformers/models/convnextv2/modeling_convnextv2.py
+license: https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
+imsdk_supported: true
+numerics_benchmark:
+  dataset_name: imagenet
+  metric_name: Top-1 Accuracy
+  value: 86.8
+  unit: '%'
+  source: https://github.com/facebookresearch/ConvNeXt-V2/blob/main/README.md
+supported_precisions:
+- float
+- w8a16
+has_on_target_demo: true
+disabled_paths:
+  w8a16:
+    tflite:
+      scorecard_failure: w8a16 is not supported on TFLite.

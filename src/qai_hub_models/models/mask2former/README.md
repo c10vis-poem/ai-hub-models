@@ -32,7 +32,8 @@ for the full list of commands and filters.
 Install the package via pip:
 ```bash
 # NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
-pip install "qai-hub-models[mask2former]" git+https://github.com/cocodataset/panopticapi.git
+pip install "qai-hub-models[mask2former]"
+pip install git+https://github.com/cocodataset/panopticapi.git
 ```
 
 ### 2. Configure Qualcomm® AI Hub Workbench

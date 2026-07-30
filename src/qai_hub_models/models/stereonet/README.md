@@ -32,7 +32,8 @@ for the full list of commands and filters.
 Install the package via pip:
 ```bash
 # NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
-pip install qai-hub-models git+https://github.com/andrewlstewart/StereoNet_PyTorch@3cb3a02
+pip install qai-hub-models
+pip install git+https://github.com/andrewlstewart/StereoNet_PyTorch@3cb3a02
 ```
 
 ### 2. Configure Qualcomm® AI Hub Workbench

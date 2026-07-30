@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import torch
 from transformers import AutoConfig, AutoProcessor, PreTrainedModel, ProcessorMixin
 from huggingface_hub import hf_hub_download
@@ -304,7 +305,15 @@ class Gemma4_VLM(VLM):
         if model_id is None:
             model_id = cls.DEFAULT_MODEL_ID
 
-        chat_template_path = hf_hub_download(model_id, "chat_template.jinja")
+        # model_id may be a local export dir (ONNX phase: model_id points at the
+        # torch-exported artifacts) rather than an HF repo id. hf_hub_download
+        # rejects a local path as an invalid repo id, so read the chat template
+        # from disk in that case (tokenizer.save_pretrained wrote it there).
+        local_template = os.path.join(model_id, "chat_template.jinja")
+        if os.path.isdir(model_id) and os.path.exists(local_template):
+            chat_template_path = local_template
+        else:
+            chat_template_path = hf_hub_download(model_id, "chat_template.jinja")
         with open(chat_template_path) as f:
             return AutoProcessor.from_pretrained(
                 model_id, use_fast=True, trust_remote_code=True, chat_template=f.read()
@@ -325,11 +334,11 @@ class Gemma4_VLM(VLM):
         ple_dim = model.config.hidden_size_per_layer_input
 
         dummy_inputs_embeds = torch.zeros(
-            (1, sequence_length, hidden_size), dtype=torch.float32
+            (1, sequence_length, hidden_size), dtype=model.dtype
         )
         dummy_attention_mask = torch.ones((1, sequence_length), dtype=torch.int)
         dummy_per_layer_inputs = torch.zeros(
-            (1, sequence_length, num_layers, ple_dim), dtype=torch.float32
+            (1, sequence_length, num_layers, ple_dim), dtype=model.dtype
         )
 
         prepared = Gemma4_VLM.get_generator_cls().prepare_inputs(
@@ -346,7 +355,9 @@ class Gemma4_VLM(VLM):
         return tuple(prepared.values())
 
     @classmethod
-    def get_sample_vision_inputs(cls, config, image_size=None):
+    def get_sample_vision_inputs(
+        cls, config, image_size=None, dtype: torch.dtype = torch.float32
+    ):
         """Dummy inputs for Gemma4 vision QuantSim.
 
         Gemma4's image processor always pads to 2520 patches
@@ -355,15 +366,14 @@ class Gemma4_VLM(VLM):
         vcfg = config.vision_config
         patch_dim = 3 * vcfg.patch_size**2
         num_patches = 2520
-        dummy_pixel_values = torch.zeros(
-            (1, num_patches, patch_dim), dtype=torch.float32
-        )
+        dummy_pixel_values = torch.zeros((1, num_patches, patch_dim), dtype=dtype)
         dummy_position_ids = torch.zeros((1, num_patches, 2), dtype=torch.int64)
         return (dummy_pixel_values, dummy_position_ids)
 
     @staticmethod
     def get_backbone_input_names(
         layer_cache_descriptors: list[LayerCacheDescriptor] | None = None,
+        **kwargs,
     ) -> tuple[str, ...]:
         from GenAILab.qai_hub_lm.models.utils.layer_cache import (
             attention_mask_input_names,
@@ -381,6 +391,7 @@ class Gemma4_VLM(VLM):
     @staticmethod
     def get_backbone_dynamic_axes(
         layer_cache_descriptors: list[LayerCacheDescriptor] | None = None,
+        **kwargs,
     ) -> dict[str, dict[int, str]]:
         from GenAILab.qai_hub_lm.models.utils.layer_cache import (
             AttentionType,
@@ -412,8 +423,23 @@ class Gemma4_VLM(VLM):
         return ("pixel_values", "image_position_ids")
 
     @staticmethod
-    def get_visual_output_names() -> tuple[str, ...]:
+    def get_visual_output_names(**kwargs) -> tuple[str, ...]:
         return ("image_embeddings",)
+
+    @classmethod
+    def get_lm_head(cls, model):
+        softcap = model.config.text_config.final_logit_softcapping
+        return SoftcappedLMHead(model.lm_head, softcap)
+
+    @classmethod
+    def build_vision_wrapper(cls, model):
+        return Gemma4VisionWrapper(model.model.vision_tower, model.model.embed_vision)
+
+    @classmethod
+    def get_extras(cls, model):
+        return {
+            "embed_tokens_per_layer": model.model.language_model.embed_tokens_per_layer,
+        }
 
     @staticmethod
     def get_generator_cls():

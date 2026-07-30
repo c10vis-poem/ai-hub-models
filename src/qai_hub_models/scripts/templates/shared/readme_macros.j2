@@ -51,10 +51,11 @@ Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.
         Model identifier (e.g., "resnet50").
     has_model_requirements : bool
         Whether model has additional pip requirements.
-    pip_pre_build_reqs : str, optional
-        Pre-build pip requirements to install first.
-    pip_install_flags : str, optional
-        Additional flags for pip install command.
+    pre_pip_install_commands : list[str], optional
+        pip commands to run before the main install (each string is a full
+        ``pip install ...`` command).
+    post_pip_install_commands : list[str], optional
+        pip commands to run after the main install.
     python_version_gte : str, optional
         Minimum Python version (default: "3.10").
     python_version_lt : str, optional
@@ -63,18 +64,21 @@ Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.
 {%- macro _pip_install_block(
     model_id,
     has_model_requirements,
-    pip_pre_build_reqs=None,
-    pip_install_flags=None,
+    pre_pip_install_commands=None,
+    post_pip_install_commands=None,
     python_version_gte=None,
     python_version_lt=None
 ) -%}
 {% set install_package = '"qai-hub-models[' ~ (model_id | replace('_', '-')) ~ ']"' if has_model_requirements else 'qai-hub-models' %}
 ```bash
 # NOTE: {{ python_version_gte or '3.10' }} <= PYTHON_VERSION < {{ python_version_lt or '3.14' }} is supported.
-{% if pip_pre_build_reqs %}
-pip install {{ pip_pre_build_reqs }}
-{% endif %}
-pip install {{ install_package }}{{ ' ' ~ pip_install_flags if pip_install_flags else '' }}
+{% for cmd in (pre_pip_install_commands or []) %}
+{{ cmd }}
+{% endfor %}
+pip install {{ install_package }}
+{% for cmd in (post_pip_install_commands or []) %}
+{{ cmd }}
+{% endfor %}
 ```
 {%- endmacro -%}
 
@@ -82,18 +86,27 @@ pip install {{ install_package }}{{ ' ' ~ pip_install_flags if pip_install_flags
 {#
     Generate package installation instructions.
 
+    ``pre_pip_install_commands`` / ``post_pip_install_commands`` are the CPU-
+    (or machine-agnostic) command lists. ``pre_pip_install_commands_gpu`` /
+    ``post_pip_install_commands_gpu`` are the GPU variants; when supplied a
+    separate "Install the GPU package" section is emitted.
+
     Parameters
     ----------
     model_id : str
         Model identifier (e.g., "resnet50").
     has_model_requirements : bool
         Whether model has additional pip requirements.
-    pip_pre_build_reqs : str, optional
-        Pre-build pip requirements to install first.
-    pip_install_flags : str, optional
-        Additional flags for pip install command.
-    pip_install_flags_gpu : str, optional
-        GPU-specific pip install flags; if provided, shows GPU instructions.
+    pre_pip_install_commands : list[str], optional
+        pip commands to run before the main install on a CPU-only host.
+    post_pip_install_commands : list[str], optional
+        pip commands to run after the main install on a CPU-only host.
+    pre_pip_install_commands_gpu : list[str], optional
+        pip commands to run before the main install on a GPU host.
+    post_pip_install_commands_gpu : list[str], optional
+        pip commands to run after the main install on a GPU host.
+    has_machine_gated_entries : bool, optional
+        If True, emits the GPU-specific installation section.
     python_version_gte : str, optional
         Minimum Python version (default: "3.10").
     python_version_lt : str, optional
@@ -102,15 +115,17 @@ pip install {{ install_package }}{{ ' ' ~ pip_install_flags if pip_install_flags
 {%- macro package_instructions(
     model_id,
     has_model_requirements,
-    pip_pre_build_reqs=None,
-    pip_install_flags=None,
-    pip_install_flags_gpu=None,
+    pre_pip_install_commands=None,
+    post_pip_install_commands=None,
+    pre_pip_install_commands_gpu=None,
+    post_pip_install_commands_gpu=None,
+    has_machine_gated_entries=False,
     python_version_gte=None,
     python_version_lt=None
 ) -%}
 Install the package via pip:
-{{ _pip_install_block(model_id, has_model_requirements, pip_pre_build_reqs, pip_install_flags, python_version_gte, python_version_lt) }}
-{%- if pip_install_flags_gpu %}
+{{ _pip_install_block(model_id, has_model_requirements, pre_pip_install_commands, post_pip_install_commands, python_version_gte, python_version_lt) }}
+{%- if has_machine_gated_entries %}
 
 For {{ model_id }}, some additional functionality can be faster or is available
 only with a GPU on the host machine.
@@ -126,7 +141,7 @@ can also increase the speed of evaluation and demo of your quantized model
 significantly but it not strictly required.
 
 Install the GPU package via pip:
-{{ _pip_install_block(model_id, has_model_requirements, pip_pre_build_reqs, pip_install_flags_gpu, python_version_gte, python_version_lt) }}
+{{ _pip_install_block(model_id, has_model_requirements, pre_pip_install_commands_gpu, post_pip_install_commands_gpu, python_version_gte, python_version_lt) }}
 {%- endif %}
 {%- endmacro -%}
 
@@ -207,12 +222,16 @@ Navigate to [docs](https://workbench.aihub.qualcomm.com/docs/) for more informat
         Whether the model supports on-device demo.
     has_model_requirements : bool
         Whether model has additional pip requirements.
-    pip_pre_build_reqs : str, optional
-        Pre-build pip requirements to install first.
-    pip_install_flags : str, optional
-        Additional flags for pip install command.
-    pip_install_flags_gpu : str, optional
-        GPU-specific pip install flags.
+    pre_pip_install_commands : list[str], optional
+        pip commands to run before the main install on a CPU-only host.
+    post_pip_install_commands : list[str], optional
+        pip commands to run after the main install on a CPU-only host.
+    pre_pip_install_commands_gpu : list[str], optional
+        pip commands to run before the main install on a GPU host.
+    post_pip_install_commands_gpu : list[str], optional
+        pip commands to run after the main install on a GPU host.
+    has_machine_gated_entries : bool, optional
+        If True, emits the GPU-specific installation section.
     python_version_gte : str, optional
         Minimum Python version (default: "3.10").
     python_version_lt : str, optional
@@ -249,9 +268,11 @@ Navigate to [docs](https://workbench.aihub.qualcomm.com/docs/) for more informat
     supported_precisions,
     has_on_target_demo,
     has_model_requirements,
-    pip_pre_build_reqs=None,
-    pip_install_flags=None,
-    pip_install_flags_gpu=None,
+    pre_pip_install_commands=None,
+    post_pip_install_commands=None,
+    pre_pip_install_commands_gpu=None,
+    post_pip_install_commands_gpu=None,
+    has_machine_gated_entries=False,
     python_version_gte=None,
     python_version_lt=None,
     readme_install_system_deps=None,
@@ -282,7 +303,7 @@ Navigate to [docs](https://workbench.aihub.qualcomm.com/docs/) for more informat
 {% endif %}
 {{ h_step }} {{ step.num }}. Install the package
 {% set step.num = step.num + 1 %}
-{{ package_instructions(model_id, has_model_requirements, pip_pre_build_reqs, pip_install_flags, pip_install_flags_gpu, python_version_gte, python_version_lt) }}
+{{ package_instructions(model_id, has_model_requirements, pre_pip_install_commands, post_pip_install_commands, pre_pip_install_commands_gpu, post_pip_install_commands_gpu, has_machine_gated_entries, python_version_gte, python_version_lt) }}
 
 {{ h_step }} {{ step.num }}. Configure Qualcomm® AI Hub Workbench
 {{ configure_aihub() }}

@@ -3,9 +3,7 @@ id: act
 status: published
 headline: Action Chunking with Transformers.
 domain: Computer Vision
-description: ACT (Action Chunking with Transformers) is a robotic policy model that
-  is trained to predict the next chunk of actions that the robotic hand is expected
-  to perform.
+description: ACT (Action Chunking with Transformers) is a robotic policy model that is trained to predict the next chunk of actions that the robotic hand is expected to perform.
 use_case: Robotics
 tags: []
 applicable_scenarios: []
@@ -34,9 +32,6 @@ external_repos:
     commit_sha: 742c753c0d4a5d87076c8f69e5628c79a8cc5488
     patches_filename: act_patches.diff
 has_on_target_demo: true
-pip_pre_build_reqs: dm_control==1.0.36 --no-deps
-readme_install_system_deps: "#### Linux\n```bash\nsudo apt install libegl-dev\n```\n
-  \n#### Windows\nYou can export this model on windows without extra system dependencies.\n
-  To run the demo, you will need to install LibEGL libraries. Options include ANGLE
-  or Mesa3D. This is not a well-tested path; we recommend using WSL or a Linux machine
-  for the demo.\n"
+readme_install_system_deps: "#### Linux\n```bash\nsudo apt install libegl-dev\n```\n \n#### Windows\nYou can export this model on windows without extra system dependencies.\n To run the demo, you will need to install LibEGL libraries. Options include ANGLE or Mesa3D. This is not a well-tested path; we recommend using WSL or a Linux machine for the demo.\n"
+pre_pip_install_commands:
+- pip install dm_control==1.0.36 --no-deps

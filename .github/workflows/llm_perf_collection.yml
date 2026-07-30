@@ -203,6 +203,7 @@ jobs:
         QAIHM_LLM_PERF_PRECISIONS: ${{ inputs.precision }}
         QAIHM_RUN_EVAL: ${{ inputs.run_eval }}
         QAIHM_LLM_PERF_UPDATES: ${{ github.workspace }}/genie_perf_updates_${{ matrix.pool }}.jsonl
+        QAIHM_LLM_PERF_RELEASE_ASSETS: ${{ inputs.release_assets_action_id != '' && format('{0}/llm-release-assets/release-assets.yaml', github.workspace) || '' }}
         AWS_ROLE_ARN: ${{ secrets.QAIHM_CI_AWS_ROLE_ARN }}
         AWS_REGION: us-west-2
         AWS_PROFILE_NAME: qaihm
@@ -257,7 +258,8 @@ jobs:
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v7
       with:
-        name: llm-perf-results-${{ matrix.pool }}
+        # Runtime-scoped so this doesn't collide with the geniex workflow.
+        name: llm-perf-results-genie-${{ matrix.pool }}
         path: llm-perf-results/
         if-no-files-found: ignore
 

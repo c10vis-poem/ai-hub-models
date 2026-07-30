@@ -24,6 +24,7 @@ HOST_ARTIFACT_ROOT = "/qdc/appium"
 HOST_QAIRT_BUNDLES = f"{HOST_ARTIFACT_ROOT}/qairt_bundles"
 HOST_ROWS = f"{HOST_ARTIFACT_ROOT}/matrix_rows.txt"
 HOST_CHIPSET = f"{HOST_ARTIFACT_ROOT}/chipset.txt"
+HOST_PROMPTS = f"{HOST_ARTIFACT_ROOT}/prompts"
 HOST_STAGE = f"{HOST_ARTIFACT_ROOT}/_stage"
 HOST_BUNDLE = f"{HOST_STAGE}/bundle"
 
@@ -32,11 +33,23 @@ DEVICE_QAIRT_BUNDLES = f"{DEVICE_BUNDLE}/qairt_bundles"
 DEVICE_MM_CACHE = "/data/local/tmp/geniex-cache"
 DEVICE_QDC_LOGS = "/data/local/tmp/QDC_logs"
 DEVICE_RESULTS = f"{DEVICE_QDC_LOGS}/results"
+DEVICE_PROMPTS = "/data/local/tmp/eval_prompts"
+DEVICE_EVAL_OUT = f"{DEVICE_QDC_LOGS}/geniex_eval_outputs.txt"
+DEVICE_EVAL_ERR = f"{DEVICE_QDC_LOGS}/geniex_eval_stderr.txt"
 
 CTXS = tuple(int(c) for c in "{CTX_LIST}".split(","))
 ANDROID_BENCH_URL = "{ANDROID_BENCH_URL}"
 PLUGIN = "{PLUGIN}"
 N_GEN = int("{N_GEN}")
+EVAL_CTX = int("{EVAL_CTX}")
+EVAL_N_GEN = int("{EVAL_N_GEN}")
+EVAL_TIMEOUT_S = int("{EVAL_TIMEOUT_S}")
+EVAL_SLEEP_S = int("{EVAL_SLEEP_S}")
+# Placeholder substituted with the literal "1"/"0" host-side; the string
+# comparison keeps the template statically typed (a bare `= {RUN_PERF}` reads as
+# a self-referential set literal to mypy).
+RUN_PERF = "{RUN_PERF}" == "1"  # noqa: PLR0133
+RUN_EVAL = "{RUN_EVAL}" == "1"  # noqa: PLR0133
 
 
 def adb(cmd: str, *, check: bool = True) -> subprocess.CompletedProcess:
@@ -162,6 +175,63 @@ def _cleanup_device() -> None:
     adb("rm -f /data/local/tmp/matrix-*.tsv", check=False)
 
 
+def _run_eval(env: str, model_ref: str, device_alias: str, chipset: str) -> int:
+    """Run `geniex-bench --accuracy` once per staged prompt, collecting stdout.
+
+    Output for each prompt is marked with ===EVAL_IDX_NNN=== so the host can
+    split and grade it. Returns the number of prompts that produced output; a
+    context-length overflow keeps its partial [gen] output and counts as run.
+    """
+    assert os.path.isdir(HOST_PROMPTS), f"eval requested but {HOST_PROMPTS} missing"
+    prompt_files = sorted(
+        f for f in os.listdir(HOST_PROMPTS) if f.startswith("prompt_")
+    )
+    adb(f"mkdir -p {DEVICE_PROMPTS}")
+    subprocess.run(["adb", "push", f"{HOST_PROMPTS}/.", DEVICE_PROMPTS], check=True)
+    adb(f"rm -f {DEVICE_EVAL_OUT} {DEVICE_EVAL_ERR}")
+    eval_ran = 0
+    for fn in prompt_files:
+        idx = fn[len("prompt_") : -len(".txt")]
+        pf = f"{DEVICE_PROMPTS}/{fn}"
+        perr = f"{DEVICE_QDC_LOGS}/geniex_eval_prompt_stderr.txt"
+        pout = f"{DEVICE_QDC_LOGS}/geniex_eval_prompt_stdout.txt"
+        # Each attempt writes to fresh per-prompt temp files on device; the
+        # accepted attempt's stdout is concatenated under the ===EVAL_IDX===
+        # marker exactly once so retries do not concatenate two generations at
+        # the grader. timeout kills a crashed/hung DSP run so the loop advances;
+        # a context-length overflow is a legit long generation (partial output
+        # kept), so force rc=0 and skip retry.
+        cmd = (
+            f"cd {DEVICE_BUNDLE} && "
+            f"rm -f {pout} {perr} && "
+            f"{env} timeout {EVAL_TIMEOUT_S} ./bin/geniex-bench --plugin {PLUGIN} "
+            f"--device {device_alias} -m {model_ref} --accuracy --prompt-file {pf} "
+            f"-c {EVAL_CTX} -n {EVAL_N_GEN} --mm-data-dir {DEVICE_MM_CACHE} "
+            f"--chipset '{chipset}' >{pout} 2>{perr}; "
+            f"rc=$?; grep -q 'Context length exceeded' {perr} && rc=0; exit $rc"
+        )
+        # Retry a random device flake once; the second run's fresh pout/perr
+        # overwrite the first attempt's output.
+        res = adb(cmd, check=False)
+        if res.returncode != 0:
+            print(f"eval idx {idx} failed (rc={res.returncode}); retrying once")
+            res = adb(cmd, check=False)
+        if res.returncode == 0:
+            eval_ran += 1
+        else:
+            print(f"eval idx {idx} failed (rc={res.returncode})")
+        # Emit marker + accepted attempt's output once, then wipe the tmpfiles.
+        adb(f"echo '===EVAL_IDX_{idx}===' >> {DEVICE_EVAL_OUT}", check=False)
+        adb(f"echo '===EVAL_IDX_{idx}===' >> {DEVICE_EVAL_ERR}", check=False)
+        adb(f"cat {pout} >> {DEVICE_EVAL_OUT} 2>/dev/null", check=False)
+        adb(f"cat {perr} >> {DEVICE_EVAL_ERR} 2>/dev/null", check=False)
+        adb(f"rm -f {pout} {perr}", check=False)
+        adb(f"sleep {EVAL_SLEEP_S}", check=False)
+    n = adb(f"grep -c '===EVAL_IDX_' {DEVICE_EVAL_OUT}", check=False)
+    print(f"eval done ({n.stdout.strip()} prompts, {eval_ran} ran)")
+    return eval_ran
+
+
 def test_scorecard() -> None:
     _preflight_network()
     push_bundle()
@@ -204,30 +274,54 @@ def test_scorecard() -> None:
             f"ADSP_LIBRARY_PATH={lib} "
             f"GENIEX_PLUGIN_PATH={lib}"
         )
+        # Perf sweep records failures but defers the fatal check to the end so a
+        # perf failure never skips the accuracy eval below.
         failures = []
-        for ctx in CTXS:
-            tsv_path = f"/data/local/tmp/matrix-{ctx}.tsv"
-            adb(
-                "printf '%s\\n' "
-                + " ".join(f"'{ln}'" for ln in tsv_by_ctx[ctx])
-                + f" > {tsv_path}"
+        cell_json_count = 0
+        results_listing = ""
+        if RUN_PERF:
+            for ctx in CTXS:
+                tsv_path = f"/data/local/tmp/matrix-{ctx}.tsv"
+                adb(
+                    "printf '%s\\n' "
+                    + " ".join(f"'{ln}'" for ln in tsv_by_ctx[ctx])
+                    + f" > {tsv_path}"
+                )
+                if _run_bench(ctx, env, tsv_path, chipset, bundle_name) != 0:
+                    failures.append(ctx)
+            # Confirm cell JSONs exist; adb hides on-device exit codes.
+            results_listing = adb(f"ls -l {DEVICE_RESULTS}", check=False).stdout
+            count_proc = adb(f"ls {DEVICE_RESULTS} | wc -l", check=False)
+            cell_json_count = (
+                int(count_proc.stdout.strip().split()[-1])
+                if count_proc.stdout.strip()
+                else 0
             )
-            if _run_bench(ctx, env, tsv_path, chipset, bundle_name) != 0:
-                failures.append(ctx)
+        else:
+            print("perf sweep disabled (RUN_PERF=False); eval only")
 
-        # Confirm cell JSONs exist; adb hides on-device exit codes.
-        ls = adb(f"ls -l {DEVICE_RESULTS}", check=False)
-        count_proc = adb(f"ls {DEVICE_RESULTS} | wc -l", check=False)
-        count = (
-            int(count_proc.stdout.strip().split()[-1])
-            if count_proc.stdout.strip()
-            else 0
-        )
-        if failures or count == 0:
+        eval_ran = 0
+        if RUN_EVAL:
+            # Single model per job: derive the -m ref from the first row.
+            _first_name, _, _first_devs, first_model = rows[0].split("|")[:4]
+            eval_model = (
+                f"{DEVICE_QAIRT_BUNDLES}/{bundle_name}"
+                if PLUGIN == "qairt" and bundle_name
+                else first_model
+            )
+            # Accuracy eval always runs on the NPU (the on-device target).
+            eval_ran = _run_eval(env, eval_model, "npu", chipset)
+
+        if RUN_PERF and (failures or cell_json_count == 0):
             pytest.fail(
                 f"geniex-bench produced no usable output (failed ctxs={failures}, "
-                f"cell_json_count={count}).\n--- {DEVICE_RESULTS} ---\n{ls.stdout}"
+                f"cell_json_count={cell_json_count}).\n--- {DEVICE_RESULTS} ---\n"
+                f"{results_listing}"
             )
+        # Every prompt failed => fail loudly so the host retry loop resubmits
+        # instead of adb silently hiding the device drop.
+        if RUN_EVAL and eval_ran == 0:
+            pytest.fail("accuracy eval produced no output (all prompts failed)")
     finally:
         _cleanup_device()
 

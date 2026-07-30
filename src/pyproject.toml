@@ -35,7 +35,7 @@ py-modules = []
 include-package-data = false
 
 [tool.setuptools.package-data]
-qai_hub_models = ["**/*.yaml", "**/*.txt", "**/*.json", "**/*.diff", "**/*.md", "**/*.j2", "**/*.env", "**/*.csv"]
+qai_hub_models = ["**/*.yaml", "**/*.txt", "**/*.json", "**/*.diff", "**/*.md", "**/*.j2", "**/*.env", "**/*.csv", "**/*.sh", "**/*.ps1", "**/geniex_pytest/*.py"]
 
 [tool.setuptools_scm]
 root = ".."

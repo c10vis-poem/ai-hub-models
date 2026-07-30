@@ -3,8 +3,7 @@ id: mask2former
 status: published
 headline: Real-time object segmentation.
 domain: Computer Vision
-description: Mask2Former is a machine learning model that predicts masks and classes
-  of objects in an image.
+description: Mask2Former is a machine learning model that predicts masks and classes of objects in an image.
 use_case: Semantic Segmentation
 tags: []
 applicable_scenarios:
@@ -32,9 +31,11 @@ technical_details:
 license_type: apache-2.0
 research_paper: https://arxiv.org/abs/2112.01527
 research_paper_title: Masked-attention Mask Transformer for Universal Image Segmentation
-source_repo:
-  https://github.com/huggingface/transformers/tree/main/src/transformers/models/mask2former
+source_repo: https://github.com/huggingface/transformers/tree/main/src/transformers/models/mask2former
 license: https://github.com/huggingface/transformers/blob/main/LICENSE
 has_on_target_demo: true
 requires_aot_prepare: true
-pip_install_flags: git+https://github.com/cocodataset/panopticapi.git
+datasets:
+- coco
+post_pip_install_commands:
+- pip install git+https://github.com/cocodataset/panopticapi.git

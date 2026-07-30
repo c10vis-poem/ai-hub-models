@@ -54,9 +54,8 @@ jobs:
           # Base models + this weekend's rotating LLM group token(s).
           models: ${{ needs.select-llm-models.outputs.models }}
           test_devices: all
-          # geniex_qairt enables GenieX on-device LLM perf (and builds Genie assets);
-          # it is a no-op for non-LLM models.
-          test_runtimes: default, qnn_dlc_via_qnn_ep, geniex_qairt
+          # 'default' covers geniex_qairt (default_sweep_paths); qnn_dlc_via_qnn_ep is opt-in.
+          test_runtimes: default,qnn_dlc_via_qnn_ep
           test_precisions: default
           qairt_version: qaihm_default
           delay: scorecard_collection_32h_delay

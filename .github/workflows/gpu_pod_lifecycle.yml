@@ -343,9 +343,7 @@ jobs:
     - name: Download eval JSON artifacts
       uses: actions/download-artifact@v8
       with:
-        # Pulls llm-perf-results-shared and llm-perf-results-dedicated into
-        # the same flat directory.
-        pattern: llm-perf-results-*
+        pattern: llm-perf-results-${{ inputs.split_name != '' && inputs.split_name || 'genie' }}-*
         merge-multiple: true
         path: ${{ env.GRADER_INPUT_DIR }}
         run-id: ${{ inputs.grader_artifacts_run_id != '' && inputs.grader_artifacts_run_id || github.run_id }}
@@ -385,8 +383,8 @@ jobs:
       if: ${{ !cancelled() && steps.grade_responses.outcome == 'success' }}
       uses: actions/upload-artifact@v7
       with:
-        # Canonical name (run_id = parent scorecard run) so the collector's accuracy glob picks this up; ", genie" keeps it a distinct per-split artifact.
-        name: Scorecard Cached Artifact (accuracy.csv, ${{ github.run_id }}, genie)
+        # Canonical name (run_id = parent scorecard run) so the collector's accuracy glob picks this up; the split_name suffix keeps it a distinct per-split artifact (defaults to "genie" for the genie collection).
+        name: Scorecard Cached Artifact (accuracy.csv, ${{ github.run_id }}, ${{ inputs.split_name != '' && inputs.split_name || 'genie' }})
         path: ${{ github.workspace }}/qaihm_test_artifacts/accuracy.csv
         if-no-files-found: ignore
 

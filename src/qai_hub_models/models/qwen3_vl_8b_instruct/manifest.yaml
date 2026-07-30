@@ -3,9 +3,7 @@ id: qwen3_vl_8b_instruct
 status: published
 headline: Multimodal 8B vision-language model with enhanced visual reasoning capabilities.
 domain: Generative AI
-description: Qwen3-VL is a vision-language model from Alibaba Cloud capable of understanding
-  both text and images for multimodal reasoning tasks such as visual question answering
-  and image captioning.
+description: Qwen3-VL is a vision-language model from Alibaba Cloud capable of understanding both text and images for multimodal reasoning tasks such as visual question answering and image captioning.
 use_case: Text Generation
 tags:
 - llm
@@ -16,11 +14,9 @@ research_paper_title: Qwen3 Technical Report
 license: https://www.apache.org/licenses/LICENSE-2.0
 source_repo: https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct
 technical_details:
-  Model architecture: Transformer with ViT Vision Encoder, Grouped Query Attention
-    (GQA), and SwiGLU activation.
+  Model architecture: Transformer with ViT Vision Encoder, Grouped Query Attention (GQA), and SwiGLU activation.
   Supported languages: 100+ languages and dialects
-  TTFT: Time To First Token is the time it takes to generate the first response token.
-    This is expressed as a range because it varies based on the length of the prompt.
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt.
   Response Rate: Rate of response generation after the first response token.
 applicable_scenarios:
 - Dialogue
@@ -59,5 +55,10 @@ orchestrator_runtimes:
 - genie
 only_allow_orchestrator_runtimes: true
 separate_quantize_script: true
-pip_install_flags_gpu: onnxruntime-gpu==1.23.2 https://github.com/qualcomm/aimet/releases/download/2.33.0/aimet_onnx-2.33.0+cu126-cp310-abi3-manylinux_2_34_x86_64.whl
-  -f https://download.pytorch.org/whl/torch_stable.html
+templates:
+- llm
+- qwen3_vl
+- vlm
+post_pip_install_commands:
+- command: pip install onnxruntime-gpu==1.23.2 https://github.com/qualcomm/aimet/releases/download/2.33.0/aimet_onnx-2.33.0+cu126-cp310-abi3-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+  machine: gpu

@@ -1,12 +1,9 @@
 name: DeepSpeech2
 id: deepspeech2
 status: pending
-headline: End-to-end speech recognition model using CNN and bidirectional RNN layers
-  with CTC loss.
+headline: End-to-end speech recognition model using CNN and bidirectional RNN layers with CTC loss.
 domain: Audio
-description: DeepSpeech2 is an end-to-end automatic speech recognition (ASR) model.
-  It uses convolutional layers for feature extraction followed by bidirectional recurrent
-  layers and CTC for sequence-to-sequence learning.
+description: DeepSpeech2 is an end-to-end automatic speech recognition (ASR) model. It uses convolutional layers for feature extraction followed by bidirectional recurrent layers and CTC for sequence-to-sequence learning.
 use_case: Speech Recognition
 tags:
 - foundation
@@ -32,17 +29,15 @@ technical_details:
   Model size: 330.48MB
 license_type: apache-2.0
 research_paper: https://arxiv.org/abs/1512.02595
-research_paper_title: 'Deep Speech 2: End-to-End Speech Recognition in English and
-  Mandarin'
+research_paper_title: 'Deep Speech 2: End-to-End Speech Recognition in English and Mandarin'
 source_repo: https://github.com/SeanNaren/deepspeech.pytorch
 license: https://github.com/SeanNaren/deepspeech.pytorch/blob/master/LICENCE
 has_on_target_demo: true
-pip_pre_build_reqs: git+https://github.com/SeanNaren/deepspeech.pytorch.git@709df90
-  git+https://github.com/romesco/hydra-lightning/#subdirectory=hydra-configs-pytorch-lightning
-  --no-deps
 disabled_paths:
   float:
     onnx:
       scorecard_failure: 'Failing jobs: jgz4nlj4p'
     qnn_dlc:
       scorecard_failure: 'Failing jobs: jpy7mor0p'
+pre_pip_install_commands:
+- pip install git+https://github.com/SeanNaren/deepspeech.pytorch.git@709df90 git+https://github.com/romesco/hydra-lightning/#subdirectory=hydra-configs-pytorch-lightning --no-deps

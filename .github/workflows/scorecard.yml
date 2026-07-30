@@ -214,7 +214,7 @@ jobs:
       device: ${{ inputs.test_devices }}
       test_precisions: ${{ inputs.test_precisions }}
       test_runtimes: ${{ inputs.test_runtimes }}
-      run_eval: ${{ inputs.test_scope == 'accuracy' || inputs.test_scope == 'perf_and_accuracy' }}
+      test_scope: ${{ inputs.test_scope }}
 
   collect_results_split:
     name: Test Export Scripts, Upload Zip Files & Compute Accuracy

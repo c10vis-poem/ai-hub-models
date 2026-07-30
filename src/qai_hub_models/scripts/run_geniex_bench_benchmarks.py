@@ -18,6 +18,7 @@ from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
 from qai_hub_models.configs.model_metadata import ModelMetadata
 from qai_hub_models.models._shared.llm.common import (
     DEFAULT_ATTEMPTS,
+    JobOutcome,
     JobRecord,
     get_qdc_api_token,
     load_jobs,
@@ -32,10 +33,14 @@ from qai_hub_models.models._shared.llm.perf_collection import (
 from qai_hub_models.models._shared.llm.qdc.geniex_jobs import (
     GenieXBenchMetrics,
     collect_geniex_bench_result,
+    load_default_eval_prompts,
+    save_eval_metadata_json,
+    save_eval_results_json,
     submit_geniex_bench_only,
 )
 from qai_hub_models.scorecard import ScorecardProfilePath
 from qai_hub_models.scorecard.device import (
+    DEFAULT_QDC_DEVICE,
     ScorecardDevice,
     get_canonical_chipset_name,
 )
@@ -63,13 +68,17 @@ ALL_GENIEX_DEVICES = (
 LLAMACPP_DEVICE_ALIASES = ("cpu", "gpu", "npu")
 LLAMACPP_CONTEXT_LENGTHS = [512, 4096]
 
+# Number of accuracy-eval prompts to run (of the built-in 100-prompt set).
+_EVAL_NUM_PROMPTS = 100
+
 
 def _qairt_precisions(model_id: str) -> list[Precision]:
+    # Mirror Genie: filter on runtime capability only, ignore disabled_paths.
     cg = QAIHMModelManifest.from_model(model_id)
     return [
         p
         for p in cg.supported_precisions
-        if cg.is_supported(p, TargetRuntime.GENIEX_QAIRT)
+        if TargetRuntime.GENIEX_QAIRT.supports_precision(p)
     ]
 
 
@@ -244,7 +253,9 @@ def run_geniex_bench_job(
     plugin: str,
     geniex_version: str | None,
     llamacpp_quant: str | None = None,
-) -> list[GenieXBenchMetrics]:
+    eval_prompts: list[str] | None = None,
+    run_perf: bool = True,
+) -> tuple[list[GenieXBenchMetrics], list[dict]]:
     """Submit-and-wait shortcut used by the ``run`` subcommand.
 
     ``submit`` / ``collect`` subcommands drive
@@ -255,7 +266,15 @@ def run_geniex_bench_job(
     api_token = get_qdc_api_token(sd)
     device_alias = ",".join(LLAMACPP_DEVICE_ALIASES) if plugin == "llama_cpp" else "npu"
     _print_job_banner(
-        model_id, sd, plugin, device_alias, model_ref, context_lengths, geniex_version
+        model_id,
+        sd,
+        plugin,
+        device_alias,
+        model_ref,
+        context_lengths,
+        geniex_version,
+        run_perf,
+        eval_prompts,
     )
 
     save_dir = os.path.join(save_dir_root, model_id, sd.name)
@@ -273,15 +292,27 @@ def run_geniex_bench_job(
             job_name=job_name,
             geniex_version=geniex_version,
             llamacpp_quant=llamacpp_quant,
+            eval_prompts=eval_prompts,
+            model_id=model_id,
+            run_perf=run_perf,
         )
         return job_id
+
+    def _collect(job_id: str) -> tuple[tuple, JobOutcome, str | None]:
+        metrics, eval_results, outcome, reason = collect_geniex_bench_result(
+            api_token,
+            sd.reference_device_name,
+            job_id,
+            save_results_dir=save_dir,
+            eval_prompts=eval_prompts,
+            run_perf=run_perf,
+        )
+        return (metrics, eval_results), outcome, reason
 
     return poll_and_retry(
         initial_job_id=_submit(),
         attempts_left=DEFAULT_ATTEMPTS - 1,
-        collect_fn=lambda job_id: collect_geniex_bench_result(
-            api_token, sd.reference_device_name, job_id, save_results_dir=save_dir
-        ),
+        collect_fn=_collect,
         resubmit_fn=_submit,
     )
 
@@ -294,6 +325,8 @@ def _print_job_banner(
     model_ref: str,
     context_lengths: list[int],
     geniex_version: str | None,
+    run_perf: bool = True,
+    eval_prompts: list[str] | None = None,
 ) -> None:
     print(f"\n{'=' * 60}")
     print(f"Model:   {model_id}")
@@ -302,6 +335,8 @@ def _print_job_banner(
     print(f"Ref:     {model_ref}")
     print(f"Ctx:     {context_lengths}")
     print(f"GenieX:  {geniex_version or 'latest stable mirror'}")
+    print(f"Perf:    {'on' if run_perf else 'off'}")
+    print(f"Eval:    {'on' if eval_prompts else 'off'}")
     print(f"{'=' * 60}")
 
 
@@ -316,6 +351,8 @@ def _submit_one(
     precision: Precision,
     jobs_file: str,
     llamacpp_quant: str | None = None,
+    eval_prompts: list[str] | None = None,
+    run_perf: bool = True,
 ) -> str:
     """Submit one geniex-bench job and upsert a jobs_file entry.
 
@@ -327,7 +364,15 @@ def _submit_one(
     api_token = get_qdc_api_token(sd)
     device_alias = ",".join(LLAMACPP_DEVICE_ALIASES) if plugin == "llama_cpp" else "npu"
     _print_job_banner(
-        model_id, sd, plugin, device_alias, model_ref, context_lengths, geniex_version
+        model_id,
+        sd,
+        plugin,
+        device_alias,
+        model_ref,
+        context_lengths,
+        geniex_version,
+        run_perf,
+        eval_prompts,
     )
 
     job_name = f"geniex-bench {plugin} {model_id}"
@@ -342,6 +387,9 @@ def _submit_one(
         job_name=job_name,
         geniex_version=geniex_version,
         llamacpp_quant=llamacpp_quant,
+        eval_prompts=eval_prompts,
+        model_id=model_id,
+        run_perf=run_perf,
     )
     runtime = "GENIEX_QAIRT" if plugin == "qairt" else "GENIEX_LLAMACPP"
     key = make_key(model_id, str(precision), runtime, sd.name)
@@ -359,13 +407,16 @@ def _collect_one(
     save_dir_root: str,
     geniex_version: str | None,
     llamacpp_urls: dict[Precision, str] | None = None,
-) -> tuple[list[GenieXBenchMetrics], str]:
+    eval_prompts: list[str] | None = None,
+    run_perf: bool = True,
+) -> tuple[list[GenieXBenchMetrics], list[dict], str]:
     """Poll a submitted geniex-bench job. On retryable failure, re-fetch
     the bundle from release-assets.yaml (qairt) or the HF URL (llama_cpp)
     and resubmit; the jobs_file row is rewritten with the new job id and
     one fewer attempt.
 
-    Returns ``(metrics, status)`` where status is ``"success"``,
+    Returns ``(metrics, eval_results, status)`` where status is
+    ``"success"``, ``"eval_only"``, ``"eval_incomplete (...)"``,
     ``"no_metrics"``, or ``"failed"``.
     """
     sd = ScorecardDevice.get(device_name)
@@ -384,7 +435,7 @@ def _collect_one(
             f"@ {device_name}: no GGUF URL available",
             file=sys.stderr,
         )
-        return [], "failed"
+        return [], [], "failed"
 
     def _resubmit() -> str:
         if plugin == "qairt":
@@ -411,16 +462,28 @@ def _collect_one(
             job_name=job_name,
             geniex_version=geniex_version,
             llamacpp_quant=llamacpp_quant,
+            eval_prompts=eval_prompts,
+            model_id=model_id,
+            run_perf=run_perf,
         )
         return new_job_id
 
+    def _collect(job_id: str) -> tuple[tuple, JobOutcome, str | None]:
+        metrics, eval_results, outcome, reason = collect_geniex_bench_result(
+            api_token,
+            sd.reference_device_name,
+            job_id,
+            save_results_dir=save_dir,
+            eval_prompts=eval_prompts,
+            run_perf=run_perf,
+        )
+        return (metrics, eval_results), outcome, reason
+
     try:
-        metrics = poll_and_retry(
+        metrics, eval_results = poll_and_retry(
             initial_job_id=record.job_id,
             attempts_left=record.attempts_left,
-            collect_fn=lambda job_id: collect_geniex_bench_result(
-                api_token, sd.reference_device_name, job_id, save_results_dir=save_dir
-            ),
+            collect_fn=_collect,
             resubmit_fn=_resubmit,
             on_new_job_id=lambda new_id, left: save_job(
                 jobs_file, key, new_id, attempts_left=left
@@ -431,8 +494,20 @@ def _collect_one(
             f"ERROR: {e} for {model_id} @ {device_name}",
             file=sys.stderr,
         )
-        return [], "failed"
-    return metrics, ("success" if metrics else "no_metrics")
+        return [], [], "failed"
+
+    if metrics:
+        return metrics, eval_results, "success"
+    # With perf off the device runs eval only, so an empty metrics list is
+    # expected rather than a failure. But the eval must still return one result
+    # per prompt sent; a short count means the run crashed or was truncated.
+    if run_perf:
+        status = "no_metrics"
+    elif eval_prompts and len(eval_results) != len(eval_prompts):
+        status = f"eval_incomplete ({len(eval_results)}/{len(eval_prompts)})"
+    else:
+        status = "eval_only"
+    return metrics, eval_results, status
 
 
 def _rows_and_updates_from_metrics(
@@ -620,7 +695,9 @@ def _write_final_outputs(
         f.writelines(json.dumps(u) + "\n" for u in perf_updates)
     print(f"Wrote {len(perf_updates)} perf.yaml updates to {perf_updates_json}")
     write_summary(rows)
-    failed = [r for r in rows if r["status"] != "success"]
+    # eval_only rows are successful eval-only runs (perf disabled), not failures.
+    ok_statuses = {"success", "eval_only"}
+    failed = [r for r in rows if r["status"] not in ok_statuses]
     if not rows:
         print("No models were benchmarked (all skipped or no candidates).")
         return 0
@@ -655,6 +732,70 @@ def _add_shared_args(parser: argparse.ArgumentParser) -> None:
         help='GenieX release tag (e.g. "v0.3.1") to pin geniex-bench/APK '
         'downloads to. Defaults to the unversioned "latest stable" mirror.',
     )
+    parser.add_argument(
+        "--run-eval",
+        action="store_true",
+        default=os.environ.get("QAIHM_RUN_EVAL", "").lower() == "true",
+        help="Also collect the 100-prompt accuracy eval (geniex-bench "
+        "--accuracy) and write *_eval.json for grading. Defaults to the "
+        "QAIHM_RUN_EVAL env var.",
+    )
+    parser.add_argument(
+        "--no-run-perf",
+        dest="run_perf",
+        action="store_false",
+        default=os.environ.get("QAIHM_RUN_PERF", "true").lower() != "false",
+        help="Skip the TPS/TTFT perf sweep (and perf.yaml updates), collecting "
+        "only the accuracy eval. Defaults to the QAIHM_RUN_PERF env var (on "
+        "unless set to 'false').",
+    )
+
+
+def _resolve_eval_prompts(run_eval: bool) -> list[str] | None:
+    """Load the eval prompt set, capped to the first _EVAL_NUM_PROMPTS."""
+    if not run_eval:
+        return None
+    return load_default_eval_prompts()[:_EVAL_NUM_PROMPTS]
+
+
+def _eval_prompts_for_device(
+    eval_prompts: list[str] | None, sd: ScorecardDevice
+) -> list[str] | None:
+    """Restrict the accuracy eval to the default LLM scorecard device.
+
+    Mirrors the genie path (see ``_shared/llm/test.py``): eval is expensive
+    (~100 prompts x per-prompt DSP attach), so run it only on
+    ``DEFAULT_QDC_DEVICE`` (cs_8_elite_qrd) and leave the other devices
+    doing perf only.
+    """
+    return eval_prompts if sd == DEFAULT_QDC_DEVICE else None
+
+
+def _save_eval_results(
+    eval_results: list[dict],
+    model_id: str,
+    sd: ScorecardDevice,
+    precision: Precision,
+    plugin: str,
+) -> None:
+    if not eval_results:
+        return
+    profile_path = (
+        ScorecardProfilePath.GENIEX_QAIRT
+        if plugin == "qairt"
+        else ScorecardProfilePath.GENIEX_LLAMACPP
+    )
+    base = f"{model_id}_{sd.chipset}_{precision}_{plugin}_eval"
+    save_eval_results_json(eval_results, f"{base}.json")
+    # Identity sidecar for collect_llm_accuracy_csv; without it the grade file
+    # is dropped and no accuracy.csv row is written.
+    save_eval_metadata_json(
+        model_id,
+        sd.chipset,
+        str(precision),
+        f"{base}.meta.json",
+        path=profile_path,
+    )
 
 
 def _add_output_args(parser: argparse.ArgumentParser) -> None:
@@ -668,6 +809,7 @@ def _add_output_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _cmd_submit(args: argparse.Namespace) -> int:
+    eval_prompts = _resolve_eval_prompts(args.run_eval)
     if os.path.exists(args.jobs_file):
         os.unlink(args.jobs_file)
     submitted = 0
@@ -699,6 +841,10 @@ def _cmd_submit(args: argparse.Namespace) -> int:
                 precision,
                 args.jobs_file,
                 llamacpp_quant=llamacpp_quant,
+                eval_prompts=_eval_prompts_for_device(
+                    eval_prompts, _scorecard_device(device_token)
+                ),
+                run_perf=args.run_perf,
             )
             submitted += 1
         except Exception as e:  # noqa: PERF203
@@ -718,6 +864,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
     same _iter_work discovery the submit side used and look each
     (model, precision, plugin, device) tuple up in the jobs_file by key.
     """
+    eval_prompts = _resolve_eval_prompts(args.run_eval)
     rows: list[dict] = []
     perf_updates: list[dict] = []
     records = load_jobs(args.jobs_file)
@@ -756,7 +903,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
             )
 
         try:
-            metrics, status = _collect_one(
+            metrics, eval_results, status = _collect_one(
                 model_id=model_id,
                 precision=precision,
                 device_name=sd.name,
@@ -766,6 +913,8 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 save_dir_root=args.results_dir,
                 geniex_version=args.geniex_version,
                 llamacpp_urls=llamacpp_urls,
+                eval_prompts=_eval_prompts_for_device(eval_prompts, sd),
+                run_perf=args.run_perf,
             )
         except Exception as e:
             print(
@@ -782,6 +931,8 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 }
             )
             continue
+
+        _save_eval_results(eval_results, model_id, sd, precision, plugin)
 
         if status != "success":
             rows.append(
@@ -810,6 +961,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     Preserved so local users and existing scripts keep working. CI drives
     the submit/collect subcommands instead.
     """
+    eval_prompts = _resolve_eval_prompts(args.run_eval)
     rows: list[dict] = []
     perf_updates: list[dict] = []
     for (
@@ -829,8 +981,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
         args.geniex_version,
     ):
         sd = _scorecard_device(device_token)
+        device_eval_prompts = _eval_prompts_for_device(eval_prompts, sd)
         try:
-            metrics = run_geniex_bench_job(
+            metrics, eval_results = run_geniex_bench_job(
                 model_id,
                 model_ref,
                 device_token,
@@ -839,6 +992,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 plugin,
                 args.geniex_version,
                 llamacpp_quant=llamacpp_quant,
+                eval_prompts=device_eval_prompts,
+                run_perf=args.run_perf,
             )
         except Exception as e:
             print(
@@ -857,14 +1012,28 @@ def _cmd_run(args: argparse.Namespace) -> int:
             )
             continue
 
+        _save_eval_results(eval_results, model_id, sd, precision, plugin)
+
         if not metrics:
+            # With perf off the device runs eval only, so an empty metrics list
+            # is expected rather than a failure. But the eval must still return
+            # one result per prompt sent; a short count means the run crashed or
+            # was truncated.
+            if args.run_perf:
+                status = "no_metrics"
+            elif device_eval_prompts and len(eval_results) != len(device_eval_prompts):
+                status = (
+                    f"eval_incomplete ({len(eval_results)}/{len(device_eval_prompts)})"
+                )
+            else:
+                status = "eval_only"
             rows.append(
                 {
                     "model": model_id,
                     "plugin": plugin,
                     "precision": str(precision),
                     "device": sd.name,
-                    "status": "no_metrics",
+                    "status": status,
                 }
             )
             continue
@@ -926,6 +1095,14 @@ def main() -> int:
     args = ap.parse_args(argv)
 
     _warn_geniex_version(getattr(args, "geniex_version", None))
+
+    if not args.run_perf and not args.run_eval:
+        print(
+            "ERROR: nothing to do -- perf is disabled (--no-run-perf) and "
+            "--run-eval was not given.",
+            file=sys.stderr,
+        )
+        return 1
 
     if args.cmd == "submit":
         return _cmd_submit(args)

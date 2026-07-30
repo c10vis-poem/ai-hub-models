@@ -32,6 +32,36 @@ def main() -> None:
         generate_and_write_model_readme(model_id)
 
 
+def _pip_command_template_vars(
+    manifest: QAIHMModelManifest,
+) -> dict[str, Any]:
+    """Split manifest pip commands into CPU/GPU README instruction lists.
+
+    Each list is a list of raw shell strings (each one starts with ``pip ``).
+    The README shows two blocks when the manifest has any ``machine: gpu`` or
+    ``machine: cpu`` entries — otherwise it collapses to one CPU-side block.
+    """
+    pre = manifest.pre_pip_install_commands
+    post = manifest.post_pip_install_commands
+
+    has_machine_gated_entries = any(c.machine != "any" for c in pre + post)
+
+    def _for(machine_ctx: str, cmds: list) -> list[str]:
+        return [c.command for c in cmds if c.machine in ("any", machine_ctx)]
+
+    return {
+        "pre_pip_install_commands": _for("cpu", pre),
+        "post_pip_install_commands": _for("cpu", post),
+        "pre_pip_install_commands_gpu": (
+            _for("gpu", pre) if has_machine_gated_entries else None
+        ),
+        "post_pip_install_commands_gpu": (
+            _for("gpu", post) if has_machine_gated_entries else None
+        ),
+        "has_machine_gated_entries": has_machine_gated_entries,
+    }
+
+
 def get_shared_template_args(manifest: QAIHMModelManifest) -> dict[str, Any]:
     """
     Get template arguments shared between regular README and HF model card.
@@ -141,9 +171,7 @@ def generate_and_write_model_readme(model_id: str) -> Path:
             "separate_quantize_script": manifest.separate_quantize_script,
             # Package installation
             "has_model_requirements": manifest.has_model_requirements(),
-            "pip_pre_build_reqs": manifest.pip_pre_build_reqs,
-            "pip_install_flags": manifest.pip_install_flags,
-            "pip_install_flags_gpu": manifest.pip_install_flags_gpu,
+            **_pip_command_template_vars(manifest),
             "python_version_gte": manifest.python_version_greater_than_or_equal_to,
             "python_version_lt": manifest.python_version_less_than,
             # Flags

@@ -1,28 +1,29 @@
 metrics:
-- dataset_name: bsd300
-  dataset_link: https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/
-  dataset_split_description: test split
-  metric_name: Peak Signal-to-Noise Ratio (PSNR)
-  metric_description: A measure of how similar two images are.
-  metric_unit: dB
-  metric_range:
-    min: 0.0
-  metric_enablement_threshold: 10.0
-  num_partial_samples: 100
-  partial_torch_metric: 29.3
+- benchmark_value: 32.57
+  dataset_link: https://huggingface.co/datasets/eugenesiow/Set14
+  dataset_name: set14
+  dataset_split_description: all 14 standard SR benchmark images
   device_metric:
     Samsung Galaxy S25:
       float:
-        tflite:
-          partial_metric: 29.3
-        qnn_dlc:
-          partial_metric: 29.3
         onnx:
-          partial_metric: 29.3
+          partial_metric: 28.6
+        qnn_dlc:
+          partial_metric: 28.6
+        tflite:
+          partial_metric: 28.6
       w8a8:
-        tflite:
-          partial_metric: 29.3
-        qnn_dlc:
-          partial_metric: 29.3
         onnx:
-          partial_metric: 29.3
+          partial_metric: 28.5
+        qnn_dlc:
+          partial_metric: 28.5
+        tflite:
+          partial_metric: 28.5
+  metric_description: A measure of how similar two images are.
+  metric_enablement_threshold: 10.0
+  metric_name: Peak Signal-to-Noise Ratio (PSNR)
+  metric_range:
+    min: 0.0
+  metric_unit: dB
+  num_partial_samples: 14
+  partial_torch_metric: 28.6

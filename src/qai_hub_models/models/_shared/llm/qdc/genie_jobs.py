@@ -28,6 +28,7 @@ from qai_hub_models.models._shared.llm.qdc.qdc_jobs import (
     QDCJobs,
     create_zip_from_entries,
 )
+from qai_hub_models.scorecard import ScorecardProfilePath
 
 GENIE_JOB_TIMEOUT = 21600  # 6 hours
 
@@ -744,19 +745,20 @@ def save_eval_metadata_json(
     chipset: str,
     precision: str,
     output_path: str,
+    path: ScorecardProfilePath,
     dataset_name: str = "prompts",
 ) -> None:
-    """Save a sidecar identifying which (model, chipset, precision, dataset) an eval JSON belongs to.
+    """Save a sidecar identifying which (model, chipset, precision, path, dataset) an eval JSON belongs to.
 
-    The grader output (``*_eval_grade.json``) carries no model/chipset/precision,
-    and the eval filename cannot be parsed unambiguously (model IDs and chipset
-    slugs both contain delimiters). This sidecar lets downstream tooling recover
-    the identity without reverse-engineering the filename.
+    collect_llm_accuracy_csv reads this to write the accuracy row under the
+    correct runtime; ``path`` is required so a caller can't silently mislabel
+    a non-genie result as GENIE.
     """
     metadata = {
         "model_id": model_id,
         "chipset": chipset,
         "precision": precision,
+        "path": path.value,
         "dataset_name": dataset_name,
     }
     with open(output_path, "w", encoding="utf-8") as f:

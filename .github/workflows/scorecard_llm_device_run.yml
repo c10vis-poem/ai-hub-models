@@ -42,13 +42,12 @@ on:
           type: string
           default: 'default'
 
-        run_eval:
+        test_scope:
           description: |
-            Run the on-device accuracy evaluation (100 default prompts). When
-            false, only TPS/TTFT perf is collected. Maps to test_scope:
-            true for "accuracy"/"perf_and_accuracy", false for "perf".
-          type: boolean
-          default: true
+            Test scope: 'perf', 'accuracy', or 'perf_and_accuracy'. Controls
+            whether the on-device accuracy evaluation (100 default prompts) runs.
+          type: string
+          default: perf_and_accuracy
 
 env:
   PYTHONUNBUFFERED: 1
@@ -145,7 +144,11 @@ jobs:
   collect_llm_perf:
     name: Collect LLM Performance Numbers (Genie)
     needs: [determine_llm_models, combine_llm_release_assets]
-    if: ${{ !cancelled() && needs.combine_llm_release_assets.result == 'success' && inputs.s3_prefix != '' && (inputs.test_runtimes == 'default' || inputs.test_runtimes == '' || contains(format(',{0},', inputs.test_runtimes), ',genie,')) }}
+    # GENIE is opt-in only: the export sweep excludes it from 'default'
+    # (path_profile.py::default_sweep_paths), so a 'default' run builds no genie
+    # assets. Only collect Genie perf when 'genie' is named explicitly, else this
+    # job fails with "No genie release asset found".
+    if: ${{ !cancelled() && needs.combine_llm_release_assets.result == 'success' && inputs.s3_prefix != '' && contains(format(',{0},', inputs.test_runtimes), ',genie,') }}
     secrets: inherit
     uses: ./.github/workflows/llm_perf_collection.yml
     with:
@@ -154,14 +157,17 @@ jobs:
       # Map default and default variants to 'all' (see scorecard/envvars.py).
       precision: ${{ contains(fromJSON('["default", "default_minus_float", "default_quantized", "bench"]'), inputs.test_precisions) && 'all' || inputs.test_precisions }}
       deployment: ${{ inputs.deployment }}
-      run_eval: ${{ inputs.run_eval }}
+      run_eval: ${{ inputs.test_scope != 'perf' }}
       create_pr: false
       release_assets_action_id: ${{ inputs.action_id }}
 
   collect_llm_perf_geniex:
     name: Collect LLM Performance Numbers (GenieX-QAIRT)
     needs: [determine_llm_models, combine_llm_release_assets]
-    if: ${{ !cancelled() && needs.combine_llm_release_assets.result == 'success' && inputs.s3_prefix != '' && (inputs.test_runtimes == 'default' || inputs.test_runtimes == '' || contains(format(',{0},', inputs.test_runtimes), ',geniex_qairt,')) }}
+    # GENIEX_QAIRT is in default_sweep_paths, so a 'default' token in
+    # test_runtimes should enable it -- match on comma-tokens rather than a
+    # string equality check so 'default,other-runtime' variants keep working.
+    if: ${{ !cancelled() && needs.combine_llm_release_assets.result == 'success' && inputs.s3_prefix != '' && (contains(format(',{0},', inputs.test_runtimes), ',default,') || contains(format(',{0},', inputs.test_runtimes), ',geniex_qairt,') || inputs.test_runtimes == '') }}
     secrets: inherit
     uses: ./.github/workflows/llm_perf_collection_geniex.yml
     with:
@@ -172,3 +178,4 @@ jobs:
       geniex_bench_plugin: qairt
       release_assets_action_id: ${{ inputs.action_id }}
       create_pr: false
+      scope: ${{ inputs.test_scope }}

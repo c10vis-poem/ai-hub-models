@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 from filelock import FileLock
 
-from qai_hub_models import Precision
+from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
 from qai_hub_models.scorecard import ScorecardDevice
 from qai_hub_models.scorecard.device import (
@@ -174,6 +174,9 @@ def get_llm_perf_parametrization(
             for p in precision_setting
             if isinstance(p, str) and Precision.parse(p) in supported_set
         ]
+
+    # Drop precisions Genie can't run (e.g. q4_0 is GENIEX_LLAMACPP-only).
+    precisions = [p for p in precisions if TargetRuntime.GENIE.supports_precision(p)]
 
     result: list[tuple[Precision, ScorecardDevice]] = []
     for precision in precisions:

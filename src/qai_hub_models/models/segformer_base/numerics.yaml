@@ -1,34 +1,34 @@
 metrics:
-- dataset_name: ade_segmentation
-  dataset_link: https://ade20k.csail.mit.edu/
+- dataset_link: https://ade20k.csail.mit.edu/
+  dataset_name: ade_segmentation
   dataset_split_description: validation split
-  metric_name: Mean Intersection Over Union
-  metric_description: Overlap of predicted and expected segmentation divided by the union size.
-  metric_unit: mIOU
-  metric_range:
-    min: 0.0
-    max: 100.0
-  metric_enablement_threshold: 10.0
-  num_partial_samples: 100
-  partial_torch_metric: 29.1
   device_metric:
     Samsung Galaxy S25:
       float:
-        tflite:
+        onnx:
           partial_metric: 29.1
         qnn_dlc:
           partial_metric: 29.1
-        onnx:
-          partial_metric: 29.1
-      w8a8:
         tflite:
-          partial_metric: 28.9
-        qnn_dlc:
-          partial_metric: 28.9
-        onnx:
-          partial_metric: 28.9
+          partial_metric: 29.1
       w8a16:
-        qnn_dlc:
-          partial_metric: 29.2
         onnx:
-          partial_metric: 29.2
+          partial_metric: 29.4
+        qnn_dlc:
+          partial_metric: 29.4
+      w8a8:
+        onnx:
+          partial_metric: 28.9
+        qnn_dlc:
+          partial_metric: 28.9
+        tflite:
+          partial_metric: 28.9
+  metric_description: Overlap of predicted and expected segmentation divided by the union size.
+  metric_enablement_threshold: 10.0
+  metric_name: Mean Intersection Over Union
+  metric_range:
+    max: 100.0
+    min: 0.0
+  metric_unit: mIOU
+  num_partial_samples: 100
+  partial_torch_metric: 29.1

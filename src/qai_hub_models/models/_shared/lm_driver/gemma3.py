@@ -234,21 +234,22 @@ class Gemma3_VLM(VLM):
         return tuple(prepared.values())
 
     @classmethod
-    def get_sample_vision_inputs(cls, config, image_size=None):
+    def get_sample_vision_inputs(
+        cls, config, image_size=None, dtype: torch.dtype = torch.float32
+    ):
         """Dummy inputs for Gemma3 vision QuantSim.
 
         SigLIP takes standard [B, C, H, W] pixel values.
         """
         vcfg = config.vision_config
         img_size = vcfg.image_size
-        dummy_pixel_values = torch.zeros(
-            (1, 3, img_size, img_size), dtype=torch.float32
-        )
+        dummy_pixel_values = torch.zeros((1, 3, img_size, img_size), dtype=dtype)
         return (dummy_pixel_values,)
 
     @staticmethod
     def get_backbone_input_names(
         layer_cache_descriptors: list[LayerCacheDescriptor] | None = None,
+        **kwargs,
     ) -> tuple[str, ...]:
         from GenAILab.qai_hub_lm.models.utils.layer_cache import cache_state_names
 
@@ -262,6 +263,7 @@ class Gemma3_VLM(VLM):
     @staticmethod
     def get_backbone_dynamic_axes(
         layer_cache_descriptors: list[LayerCacheDescriptor] | None = None,
+        **kwargs,
     ) -> dict[str, dict[int, str]]:
         axes: dict[str, dict[int, str]] = {
             "inputs_embeds": {1: "sequence_length"},
@@ -287,8 +289,14 @@ class Gemma3_VLM(VLM):
         return ("pixel_values",)
 
     @staticmethod
-    def get_visual_output_names() -> tuple[str, ...]:
+    def get_visual_output_names(**kwargs) -> tuple[str, ...]:
         return ("image_embeddings",)
+
+    @classmethod
+    def build_vision_wrapper(cls, model):
+        return Gemma3VisionWrapper(
+            model.model.vision_tower, model.model.multi_modal_projector
+        )
 
     @staticmethod
     def get_generator_cls():

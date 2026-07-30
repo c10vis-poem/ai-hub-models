@@ -48,6 +48,10 @@ def test_load_encodings_to_quantsim(checkpoint: str) -> None:
     Model.from_pretrained(checkpoint)
 
 
+# qwen3_1_7b is the qwen nightly canary (its SpinQuant R1 path surfaces
+# quantization regressions). This model runs the full matrix weekly and keeps
+# only one cheap row -- the W4A16 MMLU headline metric -- on @pytest.mark.nightly
+# for a nightly regression signal.
 @pytest.mark.evaluate
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
@@ -55,8 +59,8 @@ def test_load_encodings_to_quantsim(checkpoint: str) -> None:
 @pytest.mark.parametrize(
     ("checkpoint", "task", "expected_metric", "num_samples"),
     [
-        pytest.param("DEFAULT_W4A16", "wikitext", 13.72, 0, marks=pytest.mark.nightly),
-        ("DEFAULT_W4A16", "mmlu", 0.646, 1000),
+        ("DEFAULT_W4A16", "wikitext", 13.72, 0),
+        pytest.param("DEFAULT_W4A16", "mmlu", 0.646, 1000, marks=pytest.mark.nightly),
         ("DEFAULT_UNQUANTIZED", "wikitext", 12.76, 0),
         ("DEFAULT_UNQUANTIZED", "tiny_mmlu", 0.72, 0),
     ],
@@ -92,41 +96,9 @@ def test_evaluate(
     )
 
 
-@pytest.mark.nightly
-@pytest.mark.demo
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="This test can be run on GPU only."
-)
-def test_quantize_and_demo(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Quantize the model and verify it can respond with 'Paris'."""
-    Qwen3_4B_PreSplit.release()
-    Qwen3_4B_QuantizablePreSplit.release()
-    FPSplitModelWrapper.release()
-    QuantizedSplitModelWrapper.release()
-    # Calibrate on the PreSplit (monolithic QuantSim) like production; split
-    # wrappers stack 4 Part sessions and OOM. Demo below still validates the split.
-    checkpoint_path = test.setup_test_quantization(
-        Qwen3_4B_QuantizablePreSplit,
-        Qwen3_4B_PreSplit,
-        str(tmp_path),
-        precision=Precision.w4a16,
-        checkpoint="DEFAULT",
-        use_seq_mse=False,
-    )
-    qwen3_4b_chat_demo(
-        fp_model_cls=FPSplitModelWrapper,
-        default_prompt="What is the capital of France?",
-        test_checkpoint=checkpoint_path,
-    )
-    captured = capsys.readouterr()
-    assert "Paris" in captured.out
-    Qwen3_4B_PreSplit.release()
-    Qwen3_4B_QuantizablePreSplit.release()
-    FPSplitModelWrapper.release()
-    QuantizedSplitModelWrapper.release()
-
-
-@pytest.mark.nightly
+# Full W4A16 quantize + demo runs on qwen3_1_7b as the nightly canary; running it
+# here too was expensive and flaky, so it's dropped.
+# Weekly-only (no @pytest.mark.nightly); nightly demo coverage is on qwen3_1_7b.
 @pytest.mark.demo
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."

@@ -23,7 +23,7 @@ from .constants import (
     REQUIREMENTS_PATH,
 )
 from .task import CompositeTask, RunCommandsTask, RunCommandsWithVenvTask
-from .util import get_manifest_str_field, get_pip, has_cuda_gpu, uv_installed
+from .util import get_pip, get_pip_install_commands, has_cuda_gpu, uv_installed
 
 
 @functools.cache
@@ -264,13 +264,14 @@ class InstallLLMGraderRequirementsTask(RunCommandsWithVenvTask):
     """
 
     def __init__(self, venv_path: str | None) -> None:
+        commands = [
+            f'{get_pip()} install -r "{GRADER_REQUIREMENTS_PATH}"',
+            f'{get_pip()} install --no-deps -e "{PY_PACKAGE_INSTALL_ROOT}"',
+        ]
         super().__init__(
             group_name="Install LLM Grader Requirements",
             venv=venv_path,
-            commands=[
-                f'{get_pip()} install -r "{GRADER_REQUIREMENTS_PATH}"',
-                f'{get_pip()} install --no-deps -e "{PY_PACKAGE_INSTALL_ROOT}"',
-            ],
+            commands=commands,
             retries=2,
         )
 
@@ -309,15 +310,76 @@ class InstallCLITask(RunCommandsWithVenvTask):
         )
 
 
+def _normalize_pip_command(raw: str) -> str:
+    """Rewrite a manifest ``pip install ...`` command for the current tool.
+
+    - Replaces the leading ``pip`` with the resolved pip binary (``uv pip``
+      when uv is installed, otherwise ``pip``).
+    - Strips ``--use-pep517`` when running under uv (uv treats PEP 517 as the
+      default and rejects the flag).
+    - Strips ``--no-build-isolation`` when running under plain pip (that
+      flag is only meaningful under uv here — pip uses build isolation by
+      default and the surrounding logic installs the required build deps).
+    """
+    tokens = raw.split()
+    assert tokens and tokens[0] == "pip", raw
+    if uv_installed():
+        tokens = [t for t in tokens if t != "--use-pep517"]
+    else:
+        tokens = [t for t in tokens if t != "--no-build-isolation"]
+    return " ".join([get_pip(), *tokens[1:]])
+
+
+def _filter_pip_commands(
+    commands: Iterable[tuple[str, str]],
+) -> list[tuple[str, str]]:
+    """Drop entries that don't apply to the current machine and normalize them."""
+    on_gpu = has_cuda_gpu()
+    kept: list[tuple[str, str]] = []
+    for cmd, machine in commands:
+        if machine == "gpu" and not on_gpu:
+            continue
+        if machine == "cpu" and on_gpu:
+            continue
+        kept.append((cmd, machine))
+    return kept
+
+
+def _needs_no_build_isolation_workaround(
+    pre_commands: Iterable[tuple[str, str]],
+    post_commands: Iterable[tuple[str, str]],
+) -> bool:
+    """Match the old venv.py behavior for ``--no-build-isolation`` /
+    ``--use-pep517``.
+
+    If any pre/post command sets one of those flags, the main QAIHM install
+    won't get its build deps installed automatically. Pre-install
+    setuptools/setuptools-scm to compensate.
+    """
+    for cmd, _ in list(pre_commands) + list(post_commands):
+        if "--use-pep517" in cmd or "--no-build-isolation" in cmd:
+            return True
+    return False
+
+
 class SyncLocalQAIHMVenvTask(CompositeTask):
-    """Sync the provided environment with local QAIHM and the provided extras."""
+    """Sync the provided environment with local QAIHM and the provided extras.
+
+    Install order:
+        1. torch (CPU-only build, when no CUDA GPU is present)
+        2. build-dep bootstrap (setuptools-scm/setuptools) if any pre/post
+           command requires ``--no-build-isolation`` / ``--use-pep517``
+        3. each entry in ``pre_pip_install_commands`` (filtered by machine)
+        4. ``pip install ...[extras]`` (the main QAIHM install)
+        5. each entry in ``post_pip_install_commands`` (filtered by machine)
+    """
 
     def __init__(
         self,
         venv_path: str | None,
         extras: Iterable[str] = [],
-        flags: str | None = None,
-        pre_install: str | None = None,
+        pre_pip_install_commands: Iterable[tuple[str, str]] = (),
+        post_pip_install_commands: Iterable[tuple[str, str]] = (),
         qaihm_wheel_dir: str | os.PathLike | None = None,
         cli_wheel_dir: str | os.PathLike | None = None,
         junit_xml_path: str | None = None,
@@ -330,43 +392,44 @@ class SyncLocalQAIHMVenvTask(CompositeTask):
             f"[{','.join(e.replace('_', '-') for e in extras)}]" if extras else ""
         )
 
-        no_build_isolation = flags and (
-            "--use-pep517" in flags or "--no-build-isolation" in flags
-        )
-        if flags is not None and uv_installed():
-            # use pep 517 is default behavior for UV, and therefore is not a valid arg.
-            flags = flags.replace("--use-pep517", "")
-        if flags is not None and not uv_installed():
-            # This flag disables the `--use-pep517` behavior for uv. This is the default for pip, and is not a valid pip arg.
-            flags = flags.replace("--no-build-isolation", "")
+        pre = _filter_pip_commands(pre_pip_install_commands)
+        post = _filter_pip_commands(post_pip_install_commands)
+
+        needs_no_build_isolation = _needs_no_build_isolation_workaround(pre, post)
 
         commands: list[str] = []
 
         if torch_cpu_cmd := get_torch_cpu_install_command(extras):
             commands.append(torch_cpu_cmd)
 
-        if no_build_isolation and (qaihm_wheel_dir is None or cli_wheel_dir is None):
-            # No build isolation means pypi/uv won't install the minimum build deps to build the AI Hub Models wheel.
-            # Install them manually instead.
+        if needs_no_build_isolation and (
+            qaihm_wheel_dir is None or cli_wheel_dir is None
+        ):
+            # A pre/post command uses --no-build-isolation / --use-pep517,
+            # which means pip/uv won't install the minimum build deps to
+            # build the AI Hub Models wheel. Install them manually first.
             commands.append(
                 f"{get_pip()} install 'setuptools-scm>=9,<10' 'setuptools>=80'"
             )
 
-        if pre_install:
-            commands.append(f"{get_pip()} install {pre_install}")
+        for cmd, _ in pre:
+            commands.append(_normalize_pip_command(cmd))
 
         if qaihm_wheel_dir is not None:
             # Find wheel file and install it (use relative path to work in both local and CI)
             commands.append(
-                f"{get_pip()} install $(ls {qaihm_wheel_dir}/qai_hub_models-*.whl){extras_str} {flags or ''}"
+                f"{get_pip()} install $(ls {qaihm_wheel_dir}/qai_hub_models-*.whl){extras_str}"
             )
             install_method = "wheel"
         else:
             # Local development: Use editable install
             commands.append(
-                f'{get_pip()} install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}" {flags or ""}'
+                f'{get_pip()} install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}"'
             )
             install_method = "editable"
+
+        for cmd, _ in post:
+            commands.append(_normalize_pip_command(cmd))
 
         super().__init__(
             group_name=f"Install QAIHM{extras_str} ({install_method})",
@@ -409,9 +472,13 @@ class SyncModelVenvTask(SyncLocalQAIHMVenvTask):
         super().__init__(
             venv_path,
             extras,
-            get_manifest_str_field(model_name, "pip_install_flags"),
-            get_manifest_str_field(model_name, "pip_pre_build_reqs"),
-            qaihm_wheel_dir,
+            pre_pip_install_commands=get_pip_install_commands(
+                model_name, "pre_pip_install_commands"
+            ),
+            post_pip_install_commands=get_pip_install_commands(
+                model_name, "post_pip_install_commands"
+            ),
+            qaihm_wheel_dir=qaihm_wheel_dir,
             cli_wheel_dir=cli_wheel_dir,
             junit_xml_path=junit_xml_path,
             junit_testsuite="pytest",
@@ -431,16 +498,20 @@ class SyncModelRequirementsVenvTask(RunCommandsWithVenvTask):
         requirements_txt = os.path.join(
             PY_PACKAGE_MODELS_ROOT, model_name, "requirements.txt"
         )
-        extra_flags = get_manifest_str_field(model_name, "pip_install_flags")
-        pre_install = get_manifest_str_field(model_name, "pip_pre_build_reqs")
+        pre = _filter_pip_commands(
+            get_pip_install_commands(model_name, "pre_pip_install_commands")
+        )
+        post = _filter_pip_commands(
+            get_pip_install_commands(model_name, "post_pip_install_commands")
+        )
+
+        commands: list[str] = [_normalize_pip_command(cmd) for cmd, _ in pre]
         if os.path.exists(requirements_txt):
-            commands = [
-                f'{get_pip()} install {"--force-reinstall" if pip_force_install else None} -r "{requirements_txt}" {extra_flags or ""}'
-            ]
-            if pre_install:
-                commands.insert(0, f"{get_pip()} install {pre_install}")
-        else:
-            commands = []
+            commands.append(
+                f"{get_pip()} install {'--force-reinstall ' if pip_force_install else ''}"
+                f'-r "{requirements_txt}"'
+            )
+        commands.extend(_normalize_pip_command(cmd) for cmd, _ in post)
 
         super().__init__(
             group_name=f"Install Model Requirements for {model_name}",

@@ -3,8 +3,7 @@ id: track_anything
 status: published
 headline: High-performance interactive tracking and segmentation in videos.
 domain: Computer Vision
-description: Track-Anything is a video based machine learning model to track an object
-  in a video.
+description: Track-Anything is a video based machine learning model to track an object in a video.
 use_case: Video Object Tracking
 tags: []
 applicable_scenarios: []
@@ -42,4 +41,9 @@ disabled_paths:
     qnn_dlc:
       scorecard_failure: 'Failing jobs: jp2j232m5'
 is_collection_model: true
-pip_install_flags: git+https://github.com/ChaoningZhang/MobileSAM@34bbbfd --use-pep517
+templates:
+- sam
+models:
+- mobilesam
+post_pip_install_commands:
+- pip install git+https://github.com/ChaoningZhang/MobileSAM@34bbbfd --use-pep517

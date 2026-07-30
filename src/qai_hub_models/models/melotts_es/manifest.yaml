@@ -3,8 +3,7 @@ id: melotts_es
 status: published
 headline: High-quality text-to-speech for Spanish.
 domain: Audio
-description: MeloTTS is a high-quality multi-lingual text-to-speech library for English,
-  Chinese and Spanish language.
+description: MeloTTS is a high-quality multi-lingual text-to-speech library for English, Chinese and Spanish language.
 use_case: Audio Generation
 tags:
 - real-time
@@ -48,6 +47,12 @@ requires_aot_prepare: true
 orchestrator_runtimes:
 - voice_ai
 only_allow_orchestrator_runtimes: true
-pip_pre_build_reqs: --no-deps git+https://github.com/myshell-ai/MeloTTS.git
-readme_install_system_deps: "#### Linux\n```bash\nsudo apt install libportaudio2\n\
-  ```\n"
+readme_install_system_deps: "#### Linux\n```bash\nsudo apt install libportaudio2\n```\n"
+datasets:
+- common_voice
+templates:
+- melotts
+models:
+- whisper_large_v3_turbo
+pre_pip_install_commands:
+- pip install --no-deps git+https://github.com/myshell-ai/MeloTTS.git

@@ -100,7 +100,12 @@ class LLM(ABC):
     @classmethod
     @abstractmethod
     def instantiate_quantsim(cls, model, *args, **kwargs) -> SimCollection:
-        """Instantiate QuantSim models for components from a raw float model"""
+        """Instantiate QuantSim models for components from a raw float model.
+
+        A model whose checkpoint is a packed QAT variant may override this to
+        dequantize, build the sim, and load the trained QAT scales (see
+        Gemma4_Torch)
+        """
         pass
 
     @classmethod
@@ -200,6 +205,32 @@ class VLM(LLM):
         pass
 
     @classmethod
+    def get_language_model(cls, model: PreTrainedModel) -> torch.nn.Module:
+        """Return the decoder module from the VLM."""
+        return model.model.language_model
+
+    @classmethod
+    def get_lm_head(cls, model: PreTrainedModel) -> torch.nn.Module | None:
+        """Return the LM head module, or None if built into the language model."""
+        return model.lm_head
+
+    @classmethod
+    def get_embedding(cls, model: PreTrainedModel) -> torch.nn.Module:
+        """Return the embedding table."""
+        return cls.get_language_model(model).get_input_embeddings()
+
+    @classmethod
+    @abstractmethod
+    def build_vision_wrapper(cls, model: PreTrainedModel) -> torch.nn.Module:
+        """Return a traceable vision wrapper module for quantization/export."""
+        pass
+
+    @classmethod
+    def get_extras(cls, model: PreTrainedModel) -> dict:
+        """Return extra modules for SimCollection (e.g. per-layer embeddings)."""
+        return {}
+
+    @classmethod
     @abstractmethod
     def get_sample_vision_inputs(
         cls,
@@ -214,6 +245,7 @@ class VLM(LLM):
     @staticmethod
     def get_backbone_input_names(
         layer_cache_descriptors: list[LayerCacheDescriptor] | None = None,
+        **kwargs,
     ) -> tuple[str, ...]:
         """Get input names for the backbone model."""
         return tuple(
@@ -226,6 +258,7 @@ class VLM(LLM):
     @staticmethod
     def get_backbone_dynamic_axes(
         layer_cache_descriptors: list[LayerCacheDescriptor] | None = None,
+        **kwargs,
     ) -> dict[str, dict[int, str]]:
         axes: dict[str, dict[int, str]] = {
             "inputs_embeds": {1: "sequence_length"},
@@ -255,7 +288,7 @@ class VLM(LLM):
 
     @staticmethod
     @abstractmethod
-    def get_visual_output_names() -> tuple[str, ...]:
+    def get_visual_output_names(**kwargs) -> tuple[str, ...]:
         """Get output names for the visual model"""
         pass
 

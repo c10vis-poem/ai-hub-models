@@ -1,11 +1,9 @@
 name: Falcon3-7B-Instruct
 id: falcon_v3_7b_instruct
 status: published
-headline: State-of-the-art large language model useful on a variety of language understanding
-  and generation tasks.
+headline: State-of-the-art large language model useful on a variety of language understanding and generation tasks.
 domain: Generative AI
-description: Falcon3 family of Open Foundation Models is a set of pretrained and instruct
-  LLMs ranging from 1B to 10B.
+description: Falcon3 family of Open Foundation Models is a set of pretrained and instruct LLMs ranging from 1B to 10B.
 use_case: Text Generation
 tags:
 - llm
@@ -25,11 +23,7 @@ has_animated_banner: true
 dataset: []
 technical_details:
   Supported languages: English, French, Spanish, Portuguese.
-  TTFT: Time To First Token is the time it takes to generate the first response token.
-    This is expressed as a range because it varies based on the length of the prompt.
-    The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of
-    the prompt processor) and the upper bound is for a prompt using the full context
-    length (4096 tokens).
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (4096 tokens).
   Response Rate: Rate of response generation after the first response token.
 license_type: falcon3
 source_repo: https://huggingface.co/tiiuae/Falcon3-7B-Instruct
@@ -54,8 +48,13 @@ orchestrator_runtimes:
 - geniex_qairt
 - genie
 only_allow_orchestrator_runtimes: true
-pip_install_flags_gpu: onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl
-  -f https://download.pytorch.org/whl/torch_stable.html
 local_device_deployment: true
 has_multi_graph: true
 separate_quantize_script: true
+templates:
+- llama3
+- llm
+- lm_driver
+post_pip_install_commands:
+- command: pip install onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+  machine: gpu

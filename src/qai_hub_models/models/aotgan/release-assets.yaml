@@ -1,17 +1,16 @@
 precisions:
   float:
     universal_assets:
-      tflite:
-        s3_key: pre_release_assets/gh_actions/27460081135/aotgan-tflite-float.zip
-        tool_versions:
-          qairt: 2.45.0.260326154327
-          litert: 1.4.4
-      qnn_dlc:
-        s3_key: pre_release_assets/gh_actions/27460081135/aotgan-qnn_dlc-float.zip
-        tool_versions:
-          qairt: 2.45.0.260326154327
       onnx:
-        s3_key: pre_release_assets/gh_actions/27460081135/aotgan-onnx-float.zip
+        s3_key: pre_release_assets/gh_actions/30148026651/aotgan-onnx-float.zip
+        tool_versions:
+          onnx_runtime: 1.27.1
+          qairt: 2.45.0.260326154327
+      qnn_dlc:
+        s3_key: pre_release_assets/gh_actions/30148026651/aotgan-qnn_dlc-float.zip
         tool_versions:
           qairt: 2.45.0.260326154327
-          onnx_runtime: 1.25.0
+      tflite:
+        s3_key: pre_release_assets/gh_actions/30148026651/aotgan-tflite-float.zip
+        tool_versions:
+          qairt: 2.45.0.260326154327

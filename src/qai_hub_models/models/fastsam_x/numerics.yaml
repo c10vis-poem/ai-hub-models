@@ -1,0 +1,28 @@
+metrics:
+- benchmark_value: 63.7
+  dataset_link: https://cocodataset.org/
+  dataset_name: coco
+  dataset_split_description: val2017 split
+  device_metric:
+    Samsung Galaxy S25:
+      float:
+        onnx:
+          partial_metric: 65.9
+        qnn_dlc:
+          partial_metric: 65.5
+        tflite:
+          partial_metric: 65.5
+      w8a16:
+        onnx:
+          partial_metric: 64.0
+        qnn_dlc:
+          partial_metric: 64.0
+  metric_description: Class-agnostic average recall over IoU thresholds 0.5 to 0.95 in 0.05 increments, with up to 1000 detections per image.
+  metric_enablement_threshold: 10.0
+  metric_name: Average Recall
+  metric_range:
+    max: 100.0
+    min: 0.0
+  metric_unit: AR@1000
+  num_partial_samples: 300
+  partial_torch_metric: 66.1

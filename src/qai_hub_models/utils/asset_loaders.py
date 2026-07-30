@@ -1250,15 +1250,29 @@ def download_from_private_s3(
     return dst_path
 
 
+RETRYABLE_HTTP_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+
+
+class RetryableDownloadError(Exception):
+    """Raised on HTTP statuses that are worth retrying (5xx / 429)."""
+
+
 def _validate_download_response(
     response: requests.Response, url: str, allow_html: bool = False
 ) -> None:
-    """Raise on non-200/206 status or unexpected HTML content-type."""
+    """Raise on non-200/206 status or unexpected HTML content-type.
+
+    Retryable HTTP failures (5xx and 429) raise RetryableDownloadError so the
+    download loop retries; other non-2xx statuses raise ValueError.
+    """
     if response.status_code not in (200, 206):
+        status_code = response.status_code
         response.close()
-        raise ValueError(
-            f"Unable to download file at {url} (status {response.status_code})"
-        )
+        if status_code in RETRYABLE_HTTP_STATUS_CODES:
+            raise RetryableDownloadError(
+                f"Unable to download file at {url} (status {status_code})"
+            )
+        raise ValueError(f"Unable to download file at {url} (status {status_code})")
     content_type = response.headers.get("content-type", "")
     if not allow_html and "text/html" in content_type.lower():
         response.close()
@@ -1362,12 +1376,15 @@ def download_file(
                     requests.exceptions.ConnectionError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.Timeout,
+                    RetryableDownloadError,
                 ) as e:
                     if attempt < num_retries:
                         print(
                             f"Download interrupted ({e.__class__.__name__}), "
                             f"retrying ({attempt + 1}/{num_retries})..."
                         )
+                    elif isinstance(e, RetryableDownloadError):
+                        raise ValueError(str(e)) from e
                     else:
                         raise
 

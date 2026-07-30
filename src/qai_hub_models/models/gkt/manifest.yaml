@@ -5,11 +5,9 @@ headline: Construct a bird’s eye view from sensors mounted on a vehicle.
 domain: Computer Vision
 use_case: Driver Assistance
 tags: []
-description: Geometry-guided Kernel Transformer is a machine learning model for generating
-  a birds eye view represenation from the sensors(cameras) mounted on a vehicle.
+description: Geometry-guided Kernel Transformer is a machine learning model for generating a birds eye view represenation from the sensors(cameras) mounted on a vehicle.
 research_paper: https://arxiv.org/abs/2206.04584
-research_paper_title: Efficient and Robust 2D-to-BEV Representation Learning via Geometry-guided
-  Kernel Transformer
+research_paper_title: Efficient and Robust 2D-to-BEV Representation Learning via Geometry-guided Kernel Transformer
 source_repo: https://github.com/hustvl/GKT/
 license: https://github.com/hustvl/GKT/blob/main/LICENSE
 technical_details:
@@ -49,4 +47,9 @@ disabled_paths:
     qnn_context_binary:
       scorecard_failure: 'Failing jobs: jp38d8zm5'
 requires_aot_prepare: true
-pip_pre_build_reqs: nuscenes-devkit==1.2.0 --no-deps
+datasets:
+- nuscenes
+templates:
+- cvt_gkt
+pre_pip_install_commands:
+- pip install nuscenes-devkit==1.2.0 --no-deps

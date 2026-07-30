@@ -1,12 +1,9 @@
 name: Qwen2.5-VL-7B-Instruct
 id: qwen2_5_vl_7b_instruct
 status: published
-headline: State-of-the-art vision-language model capable of understanding images and
-  generating text responses.
+headline: State-of-the-art vision-language model capable of understanding images and generating text responses.
 domain: Generative AI
-description: Qwen2.5-VL-7B-Instruct is a multimodal vision-language model with 7 billion
-  parameters that can process both images and text, enabling visual question answering,
-  image description, and other vision-language tasks.
+description: Qwen2.5-VL-7B-Instruct is a multimodal vision-language model with 7 billion parameters that can process both images and text, enabling visual question answering, image description, and other vision-language tasks.
 use_case: Text Generation
 tags:
 - llm
@@ -28,11 +25,7 @@ has_animated_banner: true
 dataset: []
 technical_details:
   Supported languages: English, Chinese, and many others.
-  TTFT: Time To First Token is the time it takes to generate the first response token.
-    This is expressed as a range because it varies based on the length of the prompt.
-    The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of
-    the prompt processor) and the upper bound is for a prompt using the full context
-    length.
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length.
   Response Rate: Rate of response generation after the first response token.
 license_type: apache-2.0
 research_paper: https://arxiv.org/abs/2502.13923
@@ -68,6 +61,12 @@ orchestrator_runtimes:
 - genie
 only_allow_orchestrator_runtimes: true
 separate_quantize_script: true
-pip_install_flags_gpu: onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl
-  -f https://download.pytorch.org/whl/torch_stable.html
 local_device_deployment: true
+datasets:
+- imagenet
+templates:
+- llm
+- qwen2_vl
+post_pip_install_commands:
+- command: pip install onnxruntime-gpu==1.23.2 https://github.com/quic/aimet/releases/download/2.26.0/aimet_onnx-2.26.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+  machine: gpu

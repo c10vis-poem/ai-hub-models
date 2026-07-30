@@ -5,9 +5,11 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from pathlib import Path
 
 from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
+from qai_hub_models.scorecard import ScorecardProfilePath
 from qai_hub_models.scorecard.artifacts import ScorecardArtifact
 from qai_hub_models.scorecard.envvars import (
     ArtifactsDirEnvvar,
@@ -28,6 +30,32 @@ from qai_hub_models.scorecard.static.list_models import (
     validate_and_split_enabled_models,
 )
 from qai_hub_models.utils.hub_clients import get_default_hub_deployment
+
+
+def _preserve_llamacpp_gguf_assets(
+    scorecard_assets: QAIHMModelReleaseAssets,
+    committed_assets: QAIHMModelReleaseAssets,
+) -> QAIHMModelReleaseAssets:
+    """Preserve committed geniex_llamacpp GGUF entries (download_url, no s3_key)
+    when scorecard only re-produced other runtimes' assets. Without this, running
+    a genie/geniex_qairt-only scorecard would silently drop the llamacpp asset
+    from the model's release-assets.yaml.
+    """
+    merged = copy.deepcopy(scorecard_assets)
+    for precision, prec_details in committed_assets.precisions.items():
+        for path, asset in prec_details.universal_assets.items():
+            if path != ScorecardProfilePath.GENIEX_LLAMACPP:
+                continue
+            if asset.s3_key or not asset.download_url:
+                continue
+            if merged.get_asset(precision, None, path) is None:
+                merged.add_asset(
+                    copy.deepcopy(asset),
+                    precision=precision,
+                    chipset=None,
+                    path=path,
+                )
+    return merged
 
 
 def parse_args() -> argparse.Namespace:
@@ -72,7 +100,13 @@ def main() -> None:
                 continue
 
             if scorecard_model_assets := scorecard_assets.models.get(model_id):
-                # Remove assets for unsupported paths
+                if sc.is_llm:
+                    committed_assets = QAIHMModelReleaseAssets.from_model(
+                        model_id, not_exists_ok=True
+                    )
+                    scorecard_model_assets = _preserve_llamacpp_gguf_assets(
+                        scorecard_model_assets, committed_assets
+                    )
                 scorecard_model_assets = remove_asset_failures(
                     scorecard_model_assets, manifest.disabled_paths
                 )
